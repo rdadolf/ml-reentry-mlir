@@ -1,0 +1,25 @@
+# Pre-commit hooks. Runs host-side (where commits happen under the wt workflow).
+#
+# Install: `pre-commit install` (host-side, one-time).
+# Run manually: `pre-commit run --all-files`.
+#
+# clang-format will be added in week 2 when the first C++ in dialect/ lands.
+
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.13.3
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: [--maxkb=2000]
+      - id: check-merge-conflict
