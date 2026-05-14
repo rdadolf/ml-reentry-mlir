@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import sys
 
+import gnnc._torch_load_compat  # noqa: F401  (installs PyG safe-globals for OGB)
 from gnnc.paths import DATA_DIR
 
 

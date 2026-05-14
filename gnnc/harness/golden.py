@@ -16,6 +16,7 @@ import sys
 import numpy as np
 import torch
 
+import gnnc._torch_load_compat  # noqa: F401  (installs PyG safe-globals for OGB)
 from gnnc.harness.compare import save_golden
 from gnnc.paths import DATA_DIR, GOLDENS_DIR
 

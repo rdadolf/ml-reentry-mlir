@@ -21,8 +21,10 @@ if [[ -d "$LLVM_BUILD/bin" ]]; then
     esac
 fi
 
-# torch-mlir wheel-style Python package directory (post-build).
-TM_PY="$TORCH_MLIR_BUILD/tools/torch-mlir/python_packages/torch_mlir"
+# torch-mlir wheel-style Python package directory. Out-of-tree torch-mlir
+# builds put this directly under the build root; in-tree LLVM builds would use
+# tools/torch-mlir/python_packages/... instead.
+TM_PY="$TORCH_MLIR_BUILD/python_packages/torch_mlir"
 # Upstream MLIR Python bindings.
 MLIR_PY="$LLVM_BUILD/tools/mlir/python_packages/mlir_core"
 
