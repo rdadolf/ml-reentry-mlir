@@ -34,9 +34,16 @@ ingress-cpu = [
 
 # Install CUDA torch and PyG. Same caveats about torch-scatter etc. apply.
 # torch CUDA wheels resolved via the explicit PyTorch index in
-# [tool.uv.sources] below.
+# [tool.uv.sources] below. Torch is pinned to a specific dated nightly so
+# the build is reproducible — PyTorch's nightly index keeps roughly the last
+# 30 days of dev wheels, so this pin will rot; bump in tandem with the
+# index URL and any cascading rebuilds (torch-mlir, source-built CUDA exts).
 ingress-cuda = [
-    "torch>=2.4,<3",
+    "torch==2.13.0.dev20260514",
+    # triton is pulled in indirectly by torch but pinned to a +git<sha>
+    # local version that only exists in the pytorch-cuda index. Listing it
+    # here lets us scope the source mapping by extra (see tool.uv.sources).
+    "triton",
     "torch-geometric>=2.5",
     "ogb>=1.3",
 ]
@@ -65,20 +72,33 @@ gnnc = "gnnc.cli:main"
 
 # uv-specific wheel index resolution.
 #
-# PyTorch CUDA wheels are hosted on a separate index. Use cu126 (CUDA 12.6)
-# wheels because PyTorch CU13 wheels trail the toolkit release; CU12 PyTorch
-# binaries run fine against the CU13 toolkit and driver on this host. Bump
-# when PyTorch publishes a CU13 wheel.
+# PyTorch CUDA wheels are hosted on a separate index. We use the nightly
+# CUDA 13 index so torch's recorded CUDA version aligns with the container
+# CUDA 13 toolkit and the host CUDA 13 driver — this matters once we
+# source-build CUDA extensions (pyg-lib, torch-scatter, torch-sparse) into
+# the same venv, because those extensions are compiled against torch's
+# headers and link against torch's libtorch.so.
+#
+# Tradeoff: nightly torch is not stable. Pin a dated version above and
+# bump when the project's torch ABI assumptions change or when the pinned
+# wheel ages out of the nightly index (~30 days).
 #
 # To install the CUDA variant:
 #   uv sync --extra ingress-cuda --extra dev
 [[tool.uv.index]]
 name = "pytorch-cuda"
-url = "https://download.pytorch.org/whl/cu126"
+url = "https://download.pytorch.org/whl/nightly/cu130"
 explicit = true
 
 [tool.uv.sources]
+# Both torch and its bundled custom triton (pytorch/triton fork, identifiable
+# by the +git<sha> local version) come from the same nightly index. triton
+# isn't directly listed in any extra — it's an indirect dep pulled in by
+# torch — so we cannot scope its source by extra the way we do for torch.
 torch = [
+    { index = "pytorch-cuda", extra = "ingress-cuda" },
+]
+triton = [
     { index = "pytorch-cuda", extra = "ingress-cuda" },
 ]
 

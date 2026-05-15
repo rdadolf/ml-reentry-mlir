@@ -4,3 +4,12 @@
 [submodule "third_party/torch-mlir"]
 	path = third_party/torch-mlir
 	url = https://github.com/llvm/torch-mlir.git
+[submodule "third_party/pytorch_scatter"]
+	path = third_party/pytorch_scatter
+	url = https://github.com/rusty1s/pytorch_scatter.git
+[submodule "third_party/pytorch_sparse"]
+	path = third_party/pytorch_sparse
+	url = https://github.com/rusty1s/pytorch_sparse.git
+[submodule "third_party/pyg-lib"]
+	path = third_party/pyg-lib
+	url = https://github.com/pyg-team/pyg-lib.git

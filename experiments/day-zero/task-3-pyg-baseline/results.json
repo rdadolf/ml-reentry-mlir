@@ -1,0 +1,58 @@
+{
+  "dataset": "ogbn-arxiv",
+  "env": {
+    "platform": "Linux-5.15.153.1-microsoft-standard-WSL2-x86_64-with-glibc2.39",
+    "python": "3.12.3",
+    "torch": "2.13.0.dev20260514+cu130",
+    "torch_geometric": "2.7.0",
+    "WITH_TORCH_SCATTER": true,
+    "WITH_TORCH_SPARSE": true,
+    "WITH_PYG_LIB": true,
+    "gpu": {
+      "cuda_available": true,
+      "gpu_name": "NVIDIA GeForce RTX 4070",
+      "compute_capability": "sm_89",
+      "driver_version": "581.57",
+      "torch_cuda_version": "13.0",
+      "device_count": 1
+    }
+  },
+  "results": {
+    "gcn": {
+      "params": 10856,
+      "n_warmup": 20,
+      "n_timed": 100,
+      "min_ms": 10.692607879638672,
+      "median_ms": 11.177984237670898,
+      "p90_ms": 11.869183540344238,
+      "max_ms": 13.643775939941406,
+      "mean_ms": 11.30296576499939,
+      "peak_allocated_mib": 896.310546875,
+      "peak_reserved_mib": 946.0
+    },
+    "sage": {
+      "params": 21608,
+      "n_warmup": 20,
+      "n_timed": 100,
+      "min_ms": 15.61190414428711,
+      "median_ms": 15.68563175201416,
+      "p90_ms": 16.17865562438965,
+      "max_ms": 16.657407760620117,
+      "mean_ms": 15.806856908798217,
+      "peak_allocated_mib": 870.7548828125,
+      "peak_reserved_mib": 946.0
+    },
+    "gat": {
+      "params": 43896,
+      "n_warmup": 20,
+      "n_timed": 100,
+      "min_ms": 33.98553466796875,
+      "median_ms": 34.751487731933594,
+      "p90_ms": 35.810462951660156,
+      "max_ms": 37.8152961730957,
+      "mean_ms": 34.96880401611328,
+      "peak_allocated_mib": 3121.314453125,
+      "peak_reserved_mib": 3402.0
+    }
+  }
+}

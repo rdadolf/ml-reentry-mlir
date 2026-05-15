@@ -1,0 +1,4 @@
+<stdin>:53:11: error: Dialect `tm_tensor' not found for custom op 'tm_tensor.scatter' 
+    %14 = tm_tensor.scatter {dimension_map = array<i64: 0, 1>} unique_indices(false) ins(%11#2, %inserted_slice_4 : tensor<6xf32>, tensor<6x2xi64>) outs(%cst_0 : tensor<3x2xf32>) {
+          ^
+<stdin>:53:11: note: Available dialects: acc, affine, amdgpu, arith, arm_neon, arm_sme, arm_sve, async, bufferization, builtin, cf, complex, dlti, emitc, func, gpu, index, irdl, linalg, llvm, math, memref, ml_program, mpi, nvgpu, nvvm, omp, pdl, pdl_interp, ptr, quant, rocdl, scf, shape, shard, smt, sparse_tensor, spirv, tensor, test, test_dyn, test_irdl_to_cpp, tosa, transform, ub, vector, wasmssa, x86, xegpu, xevm ; for more info on dialect registration see https://mlir.llvm.org/getting_started/Faq/#registered-loaded-dependent-whats-up-with-dialects-management
