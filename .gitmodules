@@ -13,3 +13,6 @@
 [submodule "third_party/pyg-lib"]
 	path = third_party/pyg-lib
 	url = https://github.com/pyg-team/pyg-lib.git
+[submodule "third_party/lighthouse"]
+	path = third_party/lighthouse
+	url = https://github.com/llvm/lighthouse.git

@@ -12,12 +12,19 @@ license = { text = "Apache-2.0 WITH LLVM-exception" }
 authors = [{ name = "Bob Adolf", email = "rdadolf@gmail.com" }]
 
 # Core dependencies needed by harness / tooling regardless of ingress path.
-# torch-mlir is built from submodule (see internal-docs/repo-setup-plan.md
-# §4), not installed as a wheel.
+# torch-mlir and MLIR Python bindings are built from submodules (see
+# internal-docs/repo-setup-plan.md §4), not installed as wheels. Lighthouse
+# is likewise consumed as an in-tree submodule on PYTHONPATH (see
+# tools/env.sh and internal-docs/lighthouse-integration-research.md), not
+# pip-installed — so its own runtime deps that aren't otherwise satisfied
+# (PyYAML for pipeline descriptors, ml_dtypes for bf16 numpy interop) are
+# declared here. ml_dtypes is also needed at MLIR-Python load time.
 dependencies = [
     "numpy>=1.26,<3",
     "lit>=18",
     "filecheck>=1.0.1",
+    "PyYAML>=6.0,<=6.0.1",
+    "ml_dtypes>=0.5.0,<=0.6.0",
 ]
 
 # Install CPU torch and PyG. Used for week-1 ingress development and as a
@@ -57,14 +64,13 @@ dev = [
 
 # Build-time deps for the out-of-tree LLVM/MLIR and torch-mlir builds. MLIR's
 # CMake scripts inspect the active Python interpreter and require these to be
-# importable. ml_dtypes is also needed at MLIR-Python load time, not just
-# build time. Pinned versions track
-# third_party/llvm-project/mlir/python/requirements.txt.
+# importable. Pinned versions track
+# third_party/llvm-project/mlir/python/requirements.txt. (PyYAML and
+# ml_dtypes are also build-time MLIR requirements but are now core deps —
+# see the [project].dependencies note above — so they're not repeated here.)
 build = [
     "nanobind>=2.9,<3.0",
-    "PyYAML>=5.4.0,<=6.0.1",
     "typing_extensions>=4.12.2",
-    "ml_dtypes>=0.5.0,<=0.6.0",
 ]
 
 [project.scripts]

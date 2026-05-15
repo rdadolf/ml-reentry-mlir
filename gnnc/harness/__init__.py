@@ -1,6 +1,9 @@
-"""harness — Python driver layer.
+"""harness — GNN-specific correctness tooling.
 
-Modeled on Lighthouse's harness package. Glues ingress (PyG → MLIR),
-recipes (named pass pipelines), and runner (mlir-runner invocation) together
-behind the `gnnc` CLI.
+After the Lighthouse integration, the generic driver layer (ingress,
+recipes/pipeline, execution) is provided by Lighthouse and re-exported from
+`gnnc.ingress` / `gnnc.recipes` / `gnnc.execution`. What remains here is the
+part Lighthouse has no equivalent for: golden-output generation against the
+PyG reference path (`golden.py`) and tolerance-aware comparison
+(`compare.py`).
 """

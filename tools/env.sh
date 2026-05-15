@@ -14,6 +14,10 @@ fi
 export LLVM_BUILD="$GNNC_CACHE_DIR/build/llvm"
 export TORCH_MLIR_BUILD="$GNNC_CACHE_DIR/build/torch-mlir"
 
+# Repo root, for in-tree submodules (lighthouse) that ship importable
+# Python packages but aren't pip-installed.
+GNNC_REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+
 if [[ -d "$LLVM_BUILD/bin" ]]; then
     case ":$PATH:" in
         *":$LLVM_BUILD/bin:"*) ;;
@@ -27,8 +31,12 @@ fi
 TM_PY="$TORCH_MLIR_BUILD/python_packages/torch_mlir"
 # Upstream MLIR Python bindings.
 MLIR_PY="$LLVM_BUILD/tools/mlir/python_packages/mlir_core"
+# Lighthouse: consumed as an in-tree submodule (Path A — no eudsl wheels).
+# Its `lighthouse` package sits directly under the submodule root, and it
+# imports `mlir`/`torch_mlir` which resolve to our source builds above.
+LIGHTHOUSE_PY="$GNNC_REPO/third_party/lighthouse"
 
-for p in "$TM_PY" "$MLIR_PY"; do
+for p in "$TM_PY" "$MLIR_PY" "$LIGHTHOUSE_PY"; do
     if [[ -d "$p" ]]; then
         case ":${PYTHONPATH:-}:" in
             *":$p:"*) ;;

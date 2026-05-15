@@ -4,6 +4,18 @@
 # Run manually: `pre-commit run --all-files`.
 #
 # clang-format will be added in week 2 when the first C++ in dialect/ lands.
+#
+# `exclude` keeps every hook off vendored submodule trees — Lighthouse
+# (third_party/lighthouse) in particular is upstream code we consume
+# verbatim; ruff-formatting or whitespace-fixing it would create a spurious
+# local diff and defeat clean rebasing onto upstream.
+#
+# The Lighthouse end-to-end check (test/integration/lighthouse_smoke.py) is
+# deliberately NOT a hook: it needs the multi-GB source-built MLIR stack,
+# which lives in the devcontainer, not host-side where commits happen. It
+# would always SKIP here and give false confidence. Run it in-container.
+
+exclude: '^third_party/'
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit

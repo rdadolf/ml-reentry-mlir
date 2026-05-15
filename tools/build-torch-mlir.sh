@@ -30,6 +30,16 @@ mkdir -p "$BUILD_DIR"
 
 # torch-mlir's out-of-tree build pattern. See torch-mlir/docs/development.md
 # for the canonical recipe; mirror it here.
+#
+# MLIR_BINDINGS_PYTHON_NB_DOMAIN=torch_mlir is load-bearing: it renames the
+# bundled support libs to libnanobind-torch_mlir.so /
+# libMLIRPythonSupport-torch_mlir.so. Without it they collide on the
+# `PyGlobals` nanobind singleton with the LLVM build's identically-named
+# libs, and any process that imports both `mlir` (our LLVM build) and
+# `torch_mlir` aborts with "PyGlobals already constructed". This is the
+# same flag torch-mlir's release-wheel build sets (setup.py); the stock
+# out-of-tree recipe omits it. Required for Lighthouse, whose torch
+# ingress co-loads both in one process.
 cmake -G Ninja -S "$TM_SRC" -B "$BUILD_DIR" \
     -DCMAKE_BUILD_TYPE=Release \
     -DLLVM_ENABLE_ASSERTIONS=ON \
@@ -37,6 +47,7 @@ cmake -G Ninja -S "$TM_SRC" -B "$BUILD_DIR" \
     -DLLVM_DIR="$LLVM_BUILD/lib/cmake/llvm" \
     -DMLIR_ENABLE_BINDINGS_PYTHON=ON \
     -DTORCH_MLIR_ENABLE_STABLEHLO=OFF \
+    -DMLIR_BINDINGS_PYTHON_NB_DOMAIN=torch_mlir \
     -DCMAKE_C_COMPILER=clang \
     -DCMAKE_CXX_COMPILER=clang++ \
     -DLLVM_ENABLE_LLD=ON \
