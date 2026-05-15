@@ -5,17 +5,26 @@
 #
 # clang-format will be added in week 2 when the first C++ in dialect/ lands.
 #
-# `exclude` keeps every hook off vendored submodule trees — Lighthouse
-# (third_party/lighthouse) in particular is upstream code we consume
-# verbatim; ruff-formatting or whitespace-fixing it would create a spurious
-# local diff and defeat clean rebasing onto upstream.
+# `exclude` keeps every hook off two kinds of path:
+#
+#  - vendored submodule trees (third_party/) — Lighthouse in particular is
+#    upstream code we consume verbatim; ruff-formatting or whitespace-fixing
+#    it would create a spurious local diff and defeat clean rebasing.
+#
+#  - generated experiment captures (experiments/**/dumps/ and
+#    experiments/**/results*.json) — these are byte-faithful tool output
+#    (mlir-opt IR, Inductor-generated Python, benchmark JSON). Linting or
+#    eof/whitespace-fixing them corrupts their value as reproduction
+#    artifacts (e.g. ruff E731 on Inductor's `fn = lambda: ...`). The
+#    hand-written harness (experiments/**/run.py, run.sh) is NOT excluded
+#    and stays linted.
 #
 # The Lighthouse end-to-end check (test/integration/lighthouse_smoke.py) is
 # deliberately NOT a hook: it needs the multi-GB source-built MLIR stack,
 # which lives in the devcontainer, not host-side where commits happen. It
 # would always SKIP here and give false confidence. Run it in-container.
 
-exclude: '^third_party/'
+exclude: '^(third_party/|experiments/.+/dumps/|experiments/.+/results.*\.json)'
 
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
