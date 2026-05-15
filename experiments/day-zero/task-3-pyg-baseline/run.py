@@ -38,12 +38,12 @@ if "--disable-libs" in sys.argv:
     _disable_pyg_libs()
 
 
-import gnnc._torch_load_compat  # noqa: F401, E402  (PyG safe-globals for OGB)
 import torch  # noqa: E402
 import torch_geometric  # noqa: E402
 import torch_geometric.typing as tt  # noqa: E402
 from ogb.nodeproppred import PygNodePropPredDataset  # noqa: E402
 
+import gnnc._torch_load_compat  # noqa: F401, E402  (PyG safe-globals for OGB)
 from examples.models.gat import GAT  # noqa: E402
 from examples.models.gcn import GCN  # noqa: E402
 from examples.models.sage import SAGE  # noqa: E402
@@ -60,7 +60,9 @@ def gpu_info() -> dict:
     # Driver reports CUDA version; toolkit version comes from PyTorch's build.
     smi = subprocess.run(
         ["nvidia-smi", "--query-gpu=driver_version", "--format=csv,noheader"],
-        capture_output=True, text=True, check=False,
+        capture_output=True,
+        text=True,
+        check=False,
     )
     driver = smi.stdout.strip() if smi.returncode == 0 else "?"
     return {
@@ -120,7 +122,7 @@ def time_forward(
                 _ = model(x, edge_index)
                 stops[i].record()
         torch.cuda.synchronize()
-        times_ms = [s.elapsed_time(e) for s, e in zip(starts, stops)]
+        times_ms = [s.elapsed_time(e) for s, e in zip(starts, stops, strict=False)]
     else:
         times_ms = []
         with torch.no_grad():
@@ -170,22 +172,22 @@ def main() -> int:
         "--disable-libs",
         action="store_true",
         help="Mask torch_scatter/torch_sparse/pyg_lib so PyG uses its native "
-             "PyTorch scatter fallback (apples-to-apples comparison against "
-             "a libs-enabled run on the same torch version).",
+        "PyTorch scatter fallback (apples-to-apples comparison against "
+        "a libs-enabled run on the same torch version).",
     )
     p.add_argument(
         "--compile",
         action="store_true",
         help="Wrap each model in torch.compile(...) before warmup. Compile "
-             "time is absorbed by the warmup iterations (Dynamo + Inductor "
-             "first-call overhead) and excluded from per-iter timing.",
+        "time is absorbed by the warmup iterations (Dynamo + Inductor "
+        "first-call overhead) and excluded from per-iter timing.",
     )
     p.add_argument(
         "--n-warmup-compile",
         type=int,
         default=50,
         help="Larger warmup count when --compile is set, to absorb the slow "
-             "first-iter compile and any recompile triggered by graph breaks.",
+        "first-iter compile and any recompile triggered by graph breaks.",
     )
     args = p.parse_args()
 
@@ -200,8 +202,7 @@ def main() -> int:
     edge_index = data.edge_index.to(device)
     in_ch = data.num_features
     out_ch = ds.num_classes
-    print(f"  nodes={data.num_nodes:,} edges={data.num_edges:,} "
-          f"features={in_ch} classes={out_ch}")
+    print(f"  nodes={data.num_nodes:,} edges={data.num_edges:,} features={in_ch} classes={out_ch}")
 
     results = {}
     n_warmup = args.n_warmup_compile if args.compile else args.n_warmup
@@ -216,16 +217,22 @@ def main() -> int:
             # across models. fullgraph=False lets us tolerate graph breaks
             # (which there will be — see task-3b inductor experiment).
             import torch._dynamo as _dynamo
+
             _dynamo.reset()
             model = torch.compile(model, backend="inductor", fullgraph=False)
 
         stats = time_forward(
-            model, x, edge_index,
-            n_warmup=n_warmup, n_timed=args.n_timed,
+            model,
+            x,
+            edge_index,
+            n_warmup=n_warmup,
+            n_timed=args.n_timed,
         )
-        print(f"  median: {stats['median_ms']:.3f} ms, "
-              f"p90: {stats['p90_ms']:.3f} ms, "
-              f"peak_mem: {stats.get('peak_allocated_mib', 0):.1f} MiB")
+        print(
+            f"  median: {stats['median_ms']:.3f} ms, "
+            f"p90: {stats['p90_ms']:.3f} ms, "
+            f"peak_mem: {stats.get('peak_allocated_mib', 0):.1f} MiB"
+        )
         results[model_name] = {"params": n_params, **stats}
 
         del model
@@ -234,11 +241,16 @@ def main() -> int:
             torch.cuda.empty_cache()
 
     out_path = Path(args.out)
-    out_path.write_text(json.dumps({
-        "dataset": args.dataset,
-        "env": fingerprint,
-        "results": results,
-    }, indent=2))
+    out_path.write_text(
+        json.dumps(
+            {
+                "dataset": args.dataset,
+                "env": fingerprint,
+                "results": results,
+            },
+            indent=2,
+        )
+    )
     print(f"\nWrote {out_path}")
     return 0
 

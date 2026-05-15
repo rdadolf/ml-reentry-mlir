@@ -47,8 +47,9 @@ from torch_geometric.nn import GATConv  # noqa: E402
 
 def main() -> int:
     p = argparse.ArgumentParser()
-    p.add_argument("--disable-libs", action="store_true",
-                   help=argparse.SUPPRESS)  # handled at import time
+    p.add_argument(
+        "--disable-libs", action="store_true", help=argparse.SUPPRESS
+    )  # handled at import time
     p.add_argument("--heads", type=int, default=4)
     p.add_argument("--in-channels", type=int, default=16)
     p.add_argument("--out-channels", type=int, default=8)
@@ -74,8 +75,11 @@ def main() -> int:
     dst = torch.randint(0, args.nodes, (args.edges,), device=device)
     edge_index = torch.stack([src, dst], dim=0)
 
-    conv = GATConv(args.in_channels, args.out_channels,
-                   heads=args.heads, concat=True).to(device).eval()
+    conv = (
+        GATConv(args.in_channels, args.out_channels, heads=args.heads, concat=True)
+        .to(device)
+        .eval()
+    )
 
     def forward(x, edge_index):
         with torch.no_grad():
@@ -105,15 +109,19 @@ def main() -> int:
         extern_calls = re.findall(r"extern_kernels\.([a-zA-Z0-9_]+)\(", code)
         # `torch.ops.aten.foo` / `torch.ops.pyg.foo` calls inside the wrapper
         # function (after `def call(...)`) are the runtime extern dispatches.
-        aten_calls = re.findall(r"torch\.ops\.aten\.([a-zA-Z0-9_]+)\.[a-zA-Z_]+\(",
-                                code.split("def call(")[-1] if "def call(" in code else "")
+        aten_calls = re.findall(
+            r"torch\.ops\.aten\.([a-zA-Z0-9_]+)\.[a-zA-Z_]+\(",
+            code.split("def call(")[-1] if "def call(" in code else "",
+        )
         total_triton += n_triton
         total_extern += len(extern_calls)
         extern_op_names.update(extern_calls)
         extern_op_names.update(f"aten.{n}" for n in aten_calls)
-        print(f"  unit {i}: {n_triton} Triton kernels, "
-              f"{len(extern_calls)} extern, "
-              f"{len(aten_calls)} aten extern in call()")
+        print(
+            f"  unit {i}: {n_triton} Triton kernels, "
+            f"{len(extern_calls)} extern, "
+            f"{len(aten_calls)} aten extern in call()"
+        )
 
     print()
     print(f"TOTAL Triton kernels:  {total_triton}")
@@ -123,6 +131,7 @@ def main() -> int:
 
     # Write the full generated code to a dump so we can read it.
     from pathlib import Path
+
     out_dir = Path(__file__).parent / "dumps"
     out_dir.mkdir(exist_ok=True)
     suffix = "nolibs" if args.disable_libs else "libs"
