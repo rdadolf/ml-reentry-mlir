@@ -8,11 +8,11 @@ works end-to-end for a sparse matmul when sparsity is named at the model
 input boundary. Sparse encodings are preserved through every stage. The v0
 plan stands without budget changes.
 
-Source artifacts: [run.py](../experiments/day-zero/task-1-fx-sparsity/run.py)
-and [dumps/](../experiments/day-zero/task-1-fx-sparsity/dumps/).
+Source artifacts: [run.py](run.py)
+and [dumps/](dumps/).
 
 Pinned commits at characterization time:
-[third_party/README.md](../third_party/README.md).
+[third_party/README.md](../../../third_party/README.md).
 
 ---
 
@@ -29,7 +29,7 @@ linalg-on-tensors, then optionally piped through `mlir-opt --sparsifier`:
 
 Three IR stages captured per module: raw torch dialect, post torch-to-linalg
 lowering, post sparsifier (where applicable). Run script:
-[experiments/day-zero/task-1-fx-sparsity/run.py](../experiments/day-zero/task-1-fx-sparsity/run.py).
+[experiments/day-zero/fx-sparsity/run.py](run.py).
 
 ---
 
@@ -46,7 +46,7 @@ healthy.
 ### Module a-gcn — "PyG as-is" path
 
 **FX import: clean.** The message-passing structure is preserved verbatim
-([a-gcn.1-raw-torch.mlir](../experiments/day-zero/task-1-fx-sparsity/dumps/a-gcn.1-raw-torch.mlir)):
+([a-gcn.1-raw-torch.mlir](dumps/a-gcn.1-raw-torch.mlir)):
 
 ```mlir
 %1 = torch.aten.linear %arg0, %W, %none           // X · Wᵀ
@@ -65,7 +65,7 @@ integer tensors throughout — exactly the COO-without-the-vals representation.
 **Torch-to-linalg: also clean, but produces `tm_tensor.scatter`.** The
 backend pipeline lowers the `scatter_add` to a `tm_tensor.scatter` over a
 `linalg.generic`-built (values, indices) pair
-([a-gcn.2-linalg.mlir](../experiments/day-zero/task-1-fx-sparsity/dumps/a-gcn.2-linalg.mlir)):
+([a-gcn.2-linalg.mlir](dumps/a-gcn.2-linalg.mlir)):
 
 ```mlir
 %11:3 = linalg.generic ... { yields (dst_idx_i64, col_i64, value_f32) tuples }
@@ -102,7 +102,7 @@ But: we don't actually need this path, because option b is green.
 **FX import: sparse encoding flows through the type system.** Passing a
 `torch.sparse_csr_tensor` as an input arg makes the importer attach a
 `sparse_tensor.encoding` attribute to the input vtensor type
-([b-sparse-mm.1-raw-torch.mlir](../experiments/day-zero/task-1-fx-sparsity/dumps/b-sparse-mm.1-raw-torch.mlir)):
+([b-sparse-mm.1-raw-torch.mlir](dumps/b-sparse-mm.1-raw-torch.mlir)):
 
 ```mlir
 #sparse = #sparse_tensor.encoding<{ map = (d0, d1) -> (d0 : dense, d1 : compressed),
@@ -128,7 +128,7 @@ Notes:
   argument.
 
 **Torch-to-linalg: encoding survives.**
-([b-sparse-mm.2-linalg.mlir](../experiments/day-zero/task-1-fx-sparsity/dumps/b-sparse-mm.2-linalg.mlir)):
+([b-sparse-mm.2-linalg.mlir](dumps/b-sparse-mm.2-linalg.mlir)):
 
 ```mlir
 func.func @main(%arg0: tensor<3x3xf32, #sparse>,
@@ -145,7 +145,7 @@ This is exactly the shape the sparsifier consumes.
 of LLVM IR with sparse runtime calls (`@sparseCoordinates64`,
 `@sparsePositions64`, `@sparseValuesF32`, etc.) — the standard upstream
 sparse-runtime-library code path
-([b-sparse-mm.3-sparsifier.mlir](../experiments/day-zero/task-1-fx-sparsity/dumps/b-sparse-mm.3-sparsifier.mlir)).
+([b-sparse-mm.3-sparsifier.mlir](dumps/b-sparse-mm.3-sparsifier.mlir)).
 
 ---
 

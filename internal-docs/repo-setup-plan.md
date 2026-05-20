@@ -47,9 +47,10 @@ paths.
       GPU passthrough depends on it.
 - [ ] Create the two persistent host directories (empty, owned by the host user):
       `mkdir -p ../ml-reentry-mlir-cache ../ml-reentry-mlir-data`
-- [ ] Confirm `pre-commit` is available host-side (git hooks run host-side because
-      worktree management and commits happen host-side). `pipx install pre-commit`
-      or `uv tool install pre-commit` if not present.
+- [ ] Confirm `pre-commit` is available inside the devcontainer (git hooks run
+      in-container, where the source-built MLIR stack and Python tooling that
+      the lit/pytest hooks invoke are available). Installed via the `dev` extra
+      in `pyproject.toml`; run `pre-commit install` once inside the container.
 - [ ] Confirm a remote exists: `git remote -v`. (User said one is wired up but empty.)
 
 ---

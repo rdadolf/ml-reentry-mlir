@@ -215,7 +215,7 @@ def main() -> int:
         if args.compile:
             # Fresh dynamo state per model so we don't measure cache hits
             # across models. fullgraph=False lets us tolerate graph breaks
-            # (which there will be — see task-3b inductor experiment).
+            # (which there will be — see the inductor-fusion experiment).
             import torch._dynamo as _dynamo
 
             _dynamo.reset()

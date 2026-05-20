@@ -15,16 +15,14 @@ RTX 4070, and produces output bit-identical to the CPU baseline:
 `gpu-libgen` initially failed because our LLVM build was missing the
 cuSPARSE-aware runtime symbols. That was a one-flag CMake fix
 (`MLIR_ENABLE_CUDA_CUSPARSE=ON`), already applied to
-[tools/build-llvm.sh](../tools/build-llvm.sh). See "`gpu-libgen` history"
+[tools/build-llvm.sh](../../../tools/build-llvm.sh). See "`gpu-libgen` history"
 below.
 
-Source artifacts:
-[experiments/day-zero/task-2-gpu-sparsifier/](../experiments/day-zero/task-2-gpu-sparsifier/).
-Run script:
-[run.sh](../experiments/day-zero/task-2-gpu-sparsifier/run.sh).
+Source artifacts: this directory.
+Run script: [run.sh](run.sh).
 
 Pinned commits at characterization time:
-[third_party/README.md](../third_party/README.md). Hardware: RTX 4070
+[third_party/README.md](../../../third_party/README.md). Hardware: RTX 4070
 (sm_89, Ada Lovelace), driver R581.57, CUDA 13.0 toolkit.
 
 ---
@@ -32,8 +30,8 @@ Pinned commits at characterization time:
 ## Procedure
 
 A small hand-written sparse SpMM
-([spmm-cpu.mlir](../experiments/day-zero/task-2-gpu-sparsifier/spmm-cpu.mlir),
-also [spmm-gpu.mlir](../experiments/day-zero/task-2-gpu-sparsifier/spmm-gpu.mlir)
+([spmm-cpu.mlir](spmm-cpu.mlir),
+also [spmm-gpu.mlir](spmm-gpu.mlir)
 for the libgen path which needs `mgpuCreateSparseEnv` setup) computes
 `C = A · B` where A is 8×8 CSR (~1/3 fill, deterministic pattern), B and C
 are 8×8 dense. The kernel is `linalg.matmul` on a sparse-typed operand —
@@ -58,13 +56,13 @@ Stdout is captured and compared against the CPU baseline.
 ### `cpu` — baseline
 
 Works.
-([cpu.out.txt](../experiments/day-zero/task-2-gpu-sparsifier/dumps/cpu.out.txt)).
+([cpu.out.txt](dumps/cpu.out.txt)).
 Produces the expected `(C[i][j])` for `i,j ∈ [0,8)`.
 
 ### `gpu-codegen` — direct GPU codegen via the sparsifier
 
 **Works, bit-identical to CPU output**
-([gpu-codegen.out.txt](../experiments/day-zero/task-2-gpu-sparsifier/dumps/gpu-codegen.out.txt)).
+([gpu-codegen.out.txt](dumps/gpu-codegen.out.txt)).
 Lowered IR contains a `gpu.module` with an emitted NVVM kernel and
 explicit `mgpuMemAlloc`/`mgpuMemcpy`/`mgpuLaunchKernel`/`mgpuStreamCreate`
 calls — **no cuSPARSE symbols**, only the generic CUDA runtime wrappers
@@ -76,7 +74,7 @@ What it took to make this path trigger:
    (`enable-runtime-library=true`, `parallelization-strategy=none`),
    `--sparsifier` produces the same IR with and without `--gpu-num-threads`
    — byte-identical to the CPU output. The `LinalgOpRewriter` in
-   [SparseGPUCodegen.cpp](../third_party/llvm-project/mlir/lib/Dialect/SparseTensor/Transforms/SparseGPUCodegen.cpp)
+   [SparseGPUCodegen.cpp](../../../third_party/llvm-project/mlir/lib/Dialect/SparseTensor/Transforms/SparseGPUCodegen.cpp)
    matches only `linalg.generic`, and the `ForallRewriter` matches only
    `scf.parallel` with the loop-emitter attribute and no reductions; the
    default `parallelization=none` path generates neither.
@@ -97,11 +95,11 @@ plan relies on for the cuSPARSE-bypass goal.
 ### `gpu-libgen` — sparsifier-driven cuSPARSE wrappers
 
 **Works, bit-identical to CPU output**
-([gpu-libgen.out.txt](../experiments/day-zero/task-2-gpu-sparsifier/dumps/gpu-libgen.out.txt)).
+([gpu-libgen.out.txt](dumps/gpu-libgen.out.txt)).
 The lowering generates the expected
 `mgpuCreateSparseEnv → mgpuCreateCsr → mgpuCreateDnMat → mgpuSpMMBufferSize → mgpuSpMM → mgpuDestroy*`
 call sequence
-([gpu-libgen.lowered.mlir](../experiments/day-zero/task-2-gpu-sparsifier/dumps/gpu-libgen.lowered.mlir)),
+([gpu-libgen.lowered.mlir](dumps/gpu-libgen.lowered.mlir)),
 which dispatches to NVIDIA's cuSPARSE library at runtime.
 
 #### `gpu-libgen` history
@@ -120,7 +118,7 @@ link dep. Our initial build had `MLIR_ENABLE_CUDA_RUNNER=ON` but not the
 cuSPARSE extension.
 
 Fix: added `-DMLIR_ENABLE_CUDA_CUSPARSE=ON` to
-[tools/build-llvm.sh](../tools/build-llvm.sh) and rebuilt (12-step
+[tools/build-llvm.sh](../../../tools/build-llvm.sh) and rebuilt (12-step
 incremental — only `CudaRuntimeWrappers.cpp` and the .so relink). After
 rebuild, `nm -D libmlir_cuda_runtime.so` shows all 10 cuSPARSE-flavored
 `mgpu*` symbols, and the variant runs cleanly.

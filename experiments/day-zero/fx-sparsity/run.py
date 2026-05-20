@@ -1,7 +1,7 @@
 """Day-0 Task 1: characterize torch-mlir FX-importer sparsity behavior.
 
-See internal-docs/short-term-tasks.md §Task 1 and the writeup at
-internal-docs/task-1-fx-sparsity.md.
+See internal-docs/short-term-tasks.md §Task 1 and the writeup in the
+README.md alongside this script.
 
 Traces three modules through torch_mlir.fx.export_and_import:
 

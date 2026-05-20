@@ -1,6 +1,9 @@
-# Pre-commit hooks. Runs host-side (where commits happen under the wt workflow).
+# Pre-commit hooks. Run inside the devcontainer (where the source-built MLIR
+# stack and Python tooling needed by the lit/pytest hooks are available).
+# Pre-commit fires when `git commit` is invoked from a shell inside the
+# devcontainer.
 #
-# Install: `pre-commit install` (host-side, one-time).
+# Install: `pre-commit install` (one-time, inside the devcontainer).
 # Run manually: `pre-commit run --all-files`.
 #
 # clang-format will be added in week 2 when the first C++ in dialect/ lands.
@@ -19,10 +22,12 @@
 #    hand-written harness (experiments/**/run.py, run.sh) is NOT excluded
 #    and stays linted.
 #
-# The Lighthouse end-to-end check (test/integration/lighthouse_smoke.py) is
-# deliberately NOT a hook: it needs the multi-GB source-built MLIR stack,
-# which lives in the devcontainer, not host-side where commits happen. It
-# would always SKIP here and give false confidence. Run it in-container.
+# Scope of the lit and pytest hooks: the *main* project only (test/ and
+# gnnc/). The experiments/ tree is deliberately not under test — each m0/m1/
+# probe is a one-shot characterization with its own driver, not a regression
+# target. The Lighthouse end-to-end smoke (test/integration/lighthouse_smoke.py)
+# is excluded from the pytest hook because it's the heavyweight integration
+# check; run it manually or in CI, not on every commit.
 
 exclude: '^(third_party/|experiments/.+/dumps/|experiments/.+/results.*\.json)'
 
@@ -44,3 +49,26 @@ repos:
       - id: check-added-large-files
         args: [--maxkb=2000]
       - id: check-merge-conflict
+
+  - repo: local
+    hooks:
+      # MLIR lit suite — discovers .mlir under test/ (see test/lit.cfg.py).
+      # lit.cfg.py fatals if $LLVM_BUILD is unset; that's intentional — it
+      # surfaces the wrong-environment case loudly instead of silently
+      # skipping.
+      - id: lit
+        name: lit (test/)
+        entry: lit -q test/
+        language: system
+        pass_filenames: false
+        always_run: true
+
+      # Pytest for the main project. Excludes the Lighthouse integration smoke
+      # (slow). Tolerates exit code 5 ("no tests collected") so the hook
+      # doesn't fail during early scaffolding before pytest tests exist.
+      - id: pytest
+        name: pytest (gnnc/ + test/, excluding integration smoke)
+        entry: bash -c 'pytest -q --ignore=test/integration/lighthouse_smoke.py gnnc test; rc=$?; [ "$rc" -eq 5 ] && exit 0 || exit "$rc"'
+        language: system
+        pass_filenames: false
+        always_run: true

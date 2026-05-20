@@ -27,11 +27,11 @@ source-builds; final canonical numbers below).
 | torch-sparse | 0.6.18 (source-built from master HEAD `2be752eb`) |
 
 Raw JSON:
-- [results-nolibs.json](../experiments/day-zero/task-3-pyg-baseline/results-nolibs.json)
+- [results-nolibs.json](results-nolibs.json)
   — canonical eager (native PyTorch dispatch).
-- [results-nolibs-compile.json](../experiments/day-zero/task-3-pyg-baseline/results-nolibs-compile.json)
+- [results-nolibs-compile.json](results-nolibs-compile.json)
   — canonical compiled (`torch.compile(model)`, native dispatch).
-- [results.json](../experiments/day-zero/task-3-pyg-baseline/results.json)
+- [results.json](results.json)
   — legacy-compat check (libs installed, eager).
 
 ## Canonical numbers
@@ -60,7 +60,7 @@ GAT benefits most on both axes — Inductor's intra-phase fusion (see
 "Inductor verification" below) lands hardest on the per-edge-attention
 work GAT does the most of.
 
-Models defined in [examples/models/](../examples/models/) — same definitions
+Models defined in [examples/models/](../../../examples/models/) — same definitions
 that produced the goldens in `/x/data/goldens/`.
 
 ## Two surprising findings worth flagging
@@ -196,7 +196,7 @@ and counting kernels:
   unlocks.
 
 Reproducible:
-[experiments/day-zero/task-3b-inductor-fusion/run.py](../experiments/day-zero/task-3b-inductor-fusion/run.py).
+[experiments/day-zero/inductor-fusion/run.py](../inductor-fusion/run.py).
 Generated Triton code dumps in `dumps/`.
 
 ### Where Inductor lags dgNN/DF-GNN
@@ -269,19 +269,19 @@ bandwidth, not a local A/B.
 - **PyG libs source-built, not wheel-installed.** PyG's wheel index
   (`https://data.pyg.org/whl/`) doesn't yet publish torch-2.13 wheels.
   Building from master pins is the path to having these in the same venv
-  as our compiler — see [third_party/README.md](../third_party/README.md)
-  and [tools/build-pyg-libs.sh](../tools/build-pyg-libs.sh).
+  as our compiler — see [third_party/README.md](../../../third_party/README.md)
+  and [tools/build-pyg-libs.sh](../../../tools/build-pyg-libs.sh).
 
 ## Reproducing
 
 ```bash
 source tools/env.sh
 # canonical eager (libs masked, PyG dispatches through native PyTorch):
-python experiments/day-zero/task-3-pyg-baseline/run.py --disable-libs
+python experiments/day-zero/pyg-baseline/run.py --disable-libs
 # canonical compiled (torch.compile on top, same dispatch):
-python experiments/day-zero/task-3-pyg-baseline/run.py --disable-libs --compile
+python experiments/day-zero/pyg-baseline/run.py --disable-libs --compile
 # legacy-compat check (libs installed, eager — mostly the same kernels):
-python experiments/day-zero/task-3-pyg-baseline/run.py
+python experiments/day-zero/pyg-baseline/run.py
 ```
 
 `--n-warmup` (default 20 eager / 50 compiled) and `--n-timed` (default 100)
