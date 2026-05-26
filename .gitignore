@@ -33,3 +33,6 @@ Thumbs.db
 # Cache and data mounts if they happen to land under the repo
 /cache/
 /data/
+
+# VSCode Lit extension binary (temporary)
+.vscode/mlir-lit-test-explorer.vsix

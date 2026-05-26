@@ -69,12 +69,16 @@
       "extensions": [
         "ms-python.python",
         "llvm-vs-code-extensions.vscode-mlir",
-        "ms-vscode.cmake-tools",
-        "anthropic.claude-code"
+        "anthropic.claude-code",
+        "/x/workspace/.vscode/mlir-lit-test-explorer.vsix" // FIXME: temporary local extension until it's published
       ],
       "settings": {
         "python.defaultInterpreterPath": "/x/cache/venv/bin/python",
-        "python.analysis.typeCheckingMode": "off"
+        "python.analysis.typeCheckingMode": "off",
+        "extensions.allowed": {
+          "ms-python.vscode-python-envs": false,
+          "*": true
+        }
       }
     }
   }

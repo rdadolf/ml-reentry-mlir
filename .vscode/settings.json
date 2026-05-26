@@ -8,7 +8,30 @@
   // WSL-side Python interpreter. Change this if using a project venv:
   // "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "python.defaultInterpreterPath": "python3",
-  "python.analysis.typeCheckingMode": "off"
+  "python.analysis.typeCheckingMode": "off",
+
+  // Testing sidebar. Pytest is configured in pyproject.toml
+  // ([tool.pytest.ini_options]) — do not add args here. Keep it that way so
+  // CLI / pre-commit hook / Testing sidebar all behave identically.
+  "python.testing.pytestEnabled": true,
+  "python.testing.unittestEnabled": false,
+  "testing.automaticallyOpenTestResults": "neverOpen",
+
+  // MLIR language server. Paths are literal — the MLIR extension does not
+  // run setting values through VSCode's variable substitution.
+  //
+  // server_path uses torch-mlir-lsp-server because most .mlir files here
+  // contain torch.* ops; it isn't a superset of stock mlir-lsp-server
+  // (missing arith, affine, etc.), so post-lowering dumps still fail to
+  // parse. A project-local gnnc-lsp-server will eventually close the gap —
+  // see internal-docs/custom-lsp-server.md. pdll/tablegen servers stay on
+  // the stock binaries — different file types, no torch involvement.
+  "mlir.server_path": "/x/cache/build/torch-mlir/bin/torch-mlir-lsp-server",
+  "mlir.pdll_server_path": "/x/cache/build/llvm/bin/mlir-pdll-lsp-server",
+  "mlir.tablegen_server_path": "/x/cache/build/llvm/bin/tblgen-lsp-server",
+  // Default is "prompt" — pops a focus-stealing dialog on every settings
+  // change asking to restart the server. "restart" does it silently.
+  "mlir.onSettingsChanged": "restart"
 
   // Project-specific source roots for the language server. Uncomment
   // and add paths for submodules or non-standard import roots:

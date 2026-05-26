@@ -194,17 +194,18 @@ console entry point, and pre-commit hooks that lint Python.
         (torch-mlir's supported range as of plan-write; check at execution time
         and adjust if narrower).
       - Build backend: `hatchling` (lightweight, well-supported).
-      - `dependencies = [...]`: core only (`numpy`, `lit`, `filecheck`).
+      - `dependencies = [...]`: core (`numpy`, `lit`, `filecheck`, `torch`,
+        `triton`, `torch-geometric`, `ogb`). Single nightly CUDA torch wheel
+        — runs CPU code fine, only triton kernels need a real GPU — so no
+        cpu/cuda split. CUDA-built torch must match the container CUDA
+        toolkit major version; use the appropriate `--extra-index-url`
+        (pytorch.org/whl/cu130 or cu126 fallback). Document the index URL
+        in a `[tool.uv.sources]` block so `uv sync` uses it. (torch-mlir
+        comes via submodule build, not wheel — see Section 4. Adjust if
+        Task 1 changes the plan to wheel-first. torch-scatter, torch-sparse,
+        pyg-lib are post-install baseline-comparison extras from the PyG
+        wheel index, not declared here.)
       - Optional dependency groups (under `[project.optional-dependencies]`):
-        - `ingress-cpu`: `torch` (CPU), `torch-geometric`, `torch-scatter`,
-          `torch-sparse`. (torch-mlir comes via submodule build, not wheel — see
-          Section 4. Adjust if Task 1 changes the plan to wheel-first.)
-        - `ingress-cuda`: `torch` (CUDA), `torch-geometric`, `torch-scatter`,
-          `torch-sparse`, `pyg-lib`, `ogb`. CUDA-built torch must match the
-          container CUDA toolkit major version; use the appropriate
-          `--extra-index-url` (pytorch.org/whl/cu130 or cu126 fallback).
-          Document the index URL in a `[tool.uv.sources]` block so `uv sync`
-          uses it.
         - `dev`: `pytest`, `ruff`, `pre-commit`, `ipython`.
       - `[project.scripts]`: `gnnc = "gnnc.cli:main"`.
       - `[tool.ruff]`: line-length 100, target-version py311, select sensible
@@ -236,9 +237,8 @@ console entry point, and pre-commit hooks that lint Python.
 
 ## Verification
 
-- [ ] `uv sync --extra dev` clean run.
-- [ ] `uv sync --extra ingress-cuda --extra dev` clean run (verifies the CUDA
-      torch index URL is correct; this is the path week 1+ will use).
+- [ ] `uv sync --extra dev` clean run (verifies the CUDA torch index URL
+      is correct; torch is a core dep).
 - [ ] `uv run python -c "import torch; print(torch.cuda.is_available())"`
       prints `True`.
 - [ ] Pre-commit blocks a bad commit on the host.
@@ -447,7 +447,7 @@ the large build outputs on the cache mount, which aren't tracked).
 Mirror of `repo-setup-checklist.md` Section 10, adapted:
 
 - [ ] Container builds clean; `nvidia-smi` works inside it.
-- [ ] `uv sync --extra ingress-cuda --extra dev` clean.
+- [ ] `uv sync --extra dev` clean.
 - [ ] `pip list` (i.e., `uv pip list`) shows torch, torch-geometric, ogb, lit,
       filecheck, ruff, pre-commit, ipython, pytest.
 - [ ] `mlir-opt --version` reports the pinned commit.

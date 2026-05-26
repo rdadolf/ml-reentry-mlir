@@ -63,7 +63,7 @@ def _end_to_end():
         import torch
         import torch.nn as nn
     except ImportError as exc:
-        raise SmokeSkip(f"torch not installed ({exc}); `uv sync --extra ingress-cpu`") from exc
+        raise SmokeSkip(f"torch not installed ({exc}); `uv sync`") from exc
 
     from lighthouse.pipeline.driver import PipelineDriver
 

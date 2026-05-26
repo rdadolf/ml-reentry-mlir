@@ -39,11 +39,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     unzip \
     less \
     procps \
+    openssh-client \
     # Debug
     gdb \
     lldb \
     # Process manager for entrypoint signals (used by VS Code dev container)
     locales \
+    # Dev utils
+    vim \
     && rm -rf /var/lib/apt/lists/*
 
 RUN locale-gen en_US.UTF-8

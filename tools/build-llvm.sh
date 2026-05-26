@@ -47,7 +47,10 @@ ninja -C "$BUILD_DIR"
 
 echo
 echo "LLVM build complete: $BUILD_DIR"
-echo "  mlir-opt:    $BUILD_DIR/bin/mlir-opt"
-echo "  mlir-runner: $BUILD_DIR/bin/mlir-runner"
-echo "  FileCheck:   $BUILD_DIR/bin/FileCheck"
+echo "  mlir-opt:              $BUILD_DIR/bin/mlir-opt"
+echo "  mlir-runner:           $BUILD_DIR/bin/mlir-runner"
+echo "  FileCheck:             $BUILD_DIR/bin/FileCheck"
+echo "  mlir-lsp-server:       $BUILD_DIR/bin/mlir-lsp-server"
+echo "  mlir-pdll-lsp-server:  $BUILD_DIR/bin/mlir-pdll-lsp-server"
+echo "  tblgen-lsp-server:     $BUILD_DIR/bin/tblgen-lsp-server"
 echo "Source tools/env.sh to add these to PATH."

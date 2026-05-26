@@ -40,7 +40,7 @@ First time after clone (the multi-GB builds; devcontainer runs
 
 ```bash
 git submodule update --init --recursive
-uv sync --extra dev --extra ingress-cpu     # or --extra ingress-cuda
+uv sync --extra dev
 bash tools/build-llvm.sh                     # ~30 min cold; cached after
 bash tools/build-torch-mlir.sh
 bash tools/build-pyg-libs.sh                 # optional: PyG baseline only

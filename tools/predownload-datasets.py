@@ -4,7 +4,7 @@
 Skips OGB-products (1.5 GB; stretch goal, downloaded explicitly later).
 Idempotent: existing dataset directories are reused.
 
-Run after `uv sync --extra ingress-cuda --extra dev` (or the cpu variant).
+Run after `uv sync --extra dev`.
 """
 
 from __future__ import annotations

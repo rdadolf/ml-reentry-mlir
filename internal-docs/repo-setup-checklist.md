@@ -39,25 +39,24 @@ Lighthouse uses `uv`; adopt it directly.
 - [ ] Verify Python version pinned to 3.11 or 3.12 (torch-mlir's supported range; check current torch-mlir docs).
 - [ ] Activation script or alias documented in README — `source .venv/bin/activate` or `uv run <cmd>`.
 
-### Python dependencies (resolve via `pyproject.toml` extras)
+### Python dependencies (resolve via `pyproject.toml`)
 
-Core (always needed):
+Core (always needed; CUDA torch wheel runs CPU code fine, so no separate
+CPU/CUDA split):
 - [ ] `numpy` — pinned to torch-compatible version
 - [ ] `lit` — for test infrastructure
 - [ ] `filecheck` (Python package) — fallback if system FileCheck unavailable
-
-CPU ingress extras (`[ingress-cpu]`):
-- [ ] `torch` — CPU build
-- [ ] `torch-mlir` — install via wheel from `https://github.com/llvm/torch-mlir-release/releases`
-- [ ] MLIR Python bindings — install via wheel from `https://llvm.github.io/eudsl/`
+- [ ] `torch` — CUDA nightly, pinned (see `[tool.uv.sources]`)
+- [ ] `triton` — pulled from the same pytorch-cuda index as torch
 - [ ] `torch-geometric` — main dependency
-- [ ] `torch-scatter`, `torch-sparse` — PyG's library dependencies (the things we're replacing, but needed for baseline comparison and reference outputs)
+- [ ] `ogb` — graph datasets
 
-CUDA ingress extras (`[ingress-cuda]`):
-- [ ] `torch` — CUDA build, version aligned with system CUDA toolkit
-- [ ] `torch-mlir` — CUDA-compatible wheel
-- [ ] `torch-geometric` with CUDA-built `torch-scatter`/`torch-sparse`
-- [ ] `pyg-lib` — for the `EdgeIndex`/cuSPARSE path baseline
+Post-install (separate wheel index, documented in README):
+- [ ] `torch-scatter`, `torch-sparse`, `pyg-lib` — PyG baseline-comparison
+      libraries; matching wheels from `https://data.pyg.org/whl/`
+- [ ] `torch-mlir` — built from the in-tree submodule (see Section 4), not
+      a wheel
+- [ ] MLIR Python bindings — likewise built from submodule
 
 Dev extras (`[dev]`):
 - [ ] `pytest` — for any Python unit tests (most tests will be lit/FileCheck)

@@ -11,50 +11,38 @@ requires-python = ">=3.11,<3.13"
 license = { text = "Apache-2.0 WITH LLVM-exception" }
 authors = [{ name = "Bob Adolf", email = "rdadolf@gmail.com" }]
 
-# Core dependencies needed by harness / tooling regardless of ingress path.
-# torch-mlir and MLIR Python bindings are built from submodules (see
-# internal-docs/repo-setup-plan.md §4), not installed as wheels. Lighthouse
-# is likewise consumed as an in-tree submodule on PYTHONPATH (see
-# tools/env.sh and internal-docs/lighthouse-integration-research.md), not
-# pip-installed — so its own runtime deps that aren't otherwise satisfied
-# (PyYAML for pipeline descriptors, ml_dtypes for bf16 numpy interop) are
-# declared here. ml_dtypes is also needed at MLIR-Python load time.
+# Core dependencies. torch+PyG drive the ingress path; ogb supplies the
+# standard graph datasets. torch-mlir and MLIR Python bindings are built from
+# submodules (see internal-docs/repo-setup-plan.md §4), not installed as
+# wheels. Lighthouse is likewise consumed as an in-tree submodule on
+# PYTHONPATH (see tools/env.sh and
+# internal-docs/lighthouse-integration-research.md), not pip-installed — so
+# its own runtime deps that aren't otherwise satisfied (PyYAML for pipeline
+# descriptors, ml_dtypes for bf16 numpy interop) are declared here.
+# ml_dtypes is also needed at MLIR-Python load time.
+#
+# torch is pinned to a specific dated CUDA nightly so the build is
+# reproducible — PyTorch's nightly index keeps roughly the last 30 days of
+# dev wheels, so this pin will rot; bump in tandem with [tool.uv.sources]
+# below and any cascading rebuilds (torch-mlir, source-built CUDA exts).
+# The CUDA torch wheel runs CPU code fine; only triton kernels require an
+# actual GPU at launch time, so CPU-baseline comparison work uses this same
+# wheel. torch-scatter / torch-sparse / pyg-lib are needed only for PyG
+# baseline comparison and require matching wheels from
+# https://data.pyg.org/whl/ (post-install step, documented in README).
 dependencies = [
     "numpy>=1.26,<3",
     "lit>=18",
     "filecheck>=1.0.1",
     "PyYAML>=6.0,<=6.0.1",
     "ml_dtypes>=0.5.0,<=0.6.0",
-]
-
-# Install CPU torch and PyG. Used for week-1 ingress development and as a
-# baseline-comparison path. Doesn't install torch-scatter / torch-sparse /
-# pyg-lib — those are needed only for the PyG baseline comparison and require
-# matching wheels from https://data.pyg.org/whl/ (post-install step,
-# documented in README).
-[project.optional-dependencies]
-ingress-cpu = [
-    "torch>=2.4,<3",
-    "torch-geometric>=2.5",
-    "ogb>=1.3",
-]
-
-# Install CUDA torch and PyG. Same caveats about torch-scatter etc. apply.
-# torch CUDA wheels resolved via the explicit PyTorch index in
-# [tool.uv.sources] below. Torch is pinned to a specific dated nightly so
-# the build is reproducible — PyTorch's nightly index keeps roughly the last
-# 30 days of dev wheels, so this pin will rot; bump in tandem with the
-# index URL and any cascading rebuilds (torch-mlir, source-built CUDA exts).
-ingress-cuda = [
     "torch==2.13.0.dev20260514",
-    # triton is pulled in indirectly by torch but pinned to a +git<sha>
-    # local version that only exists in the pytorch-cuda index. Listing it
-    # here lets us scope the source mapping by extra (see tool.uv.sources).
     "triton",
     "torch-geometric>=2.5",
     "ogb>=1.3",
 ]
 
+[project.optional-dependencies]
 dev = [
     "pytest>=8",
     "ruff>=0.6",
@@ -84,32 +72,33 @@ gnnc = "gnnc.cli:main"
 # source-build CUDA extensions (pyg-lib, torch-scatter, torch-sparse) into
 # the same venv, because those extensions are compiled against torch's
 # headers and link against torch's libtorch.so.
-#
-# Tradeoff: nightly torch is not stable. Pin a dated version above and
-# bump when the project's torch ABI assumptions change or when the pinned
-# wheel ages out of the nightly index (~30 days).
-#
-# To install the CUDA variant:
-#   uv sync --extra ingress-cuda --extra dev
 [[tool.uv.index]]
 name = "pytorch-cuda"
 url = "https://download.pytorch.org/whl/nightly/cu130"
 explicit = true
 
 [tool.uv.sources]
-# Both torch and its bundled custom triton (pytorch/triton fork, identifiable
-# by the +git<sha> local version) come from the same nightly index. triton
-# isn't directly listed in any extra — it's an indirect dep pulled in by
-# torch — so we cannot scope its source by extra the way we do for torch.
-torch = [
-    { index = "pytorch-cuda", extra = "ingress-cuda" },
-]
-triton = [
-    { index = "pytorch-cuda", extra = "ingress-cuda" },
-]
+# torch and its bundled triton fork (pytorch/triton, identifiable by the
+# +git<sha> local version) both come from the pytorch-cuda index.
+torch = { index = "pytorch-cuda" }
+triton = { index = "pytorch-cuda" }
 
 [tool.hatch.build.targets.wheel]
 packages = ["gnnc"]
+
+# ----- Pytest -----
+# Single source of truth for pytest invocation. Both the pre-commit hook and
+# the VSCode Testing sidebar invoke `pytest` with no extra args and inherit
+# this config, so behavior is identical across CLI, hook, and IDE.
+#
+# `testpaths` scopes discovery to the main project; experiments/ is excluded
+# by virtue of not being listed (each experiment is a one-shot probe with its
+# own driver, not a regression target). `--ignore` excludes the Lighthouse
+# end-to-end smoke — it's heavyweight and gated separately (run by hand or in
+# CI, not on every pre-commit / every save).
+[tool.pytest.ini_options]
+testpaths = ["gnnc", "test"]
+addopts = "-q --ignore=test/integration/lighthouse_smoke.py"
 
 # ----- Ruff -----
 [tool.ruff]

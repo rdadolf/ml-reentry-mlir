@@ -63,12 +63,14 @@ repos:
         pass_filenames: false
         always_run: true
 
-      # Pytest for the main project. Excludes the Lighthouse integration smoke
-      # (slow). Tolerates exit code 5 ("no tests collected") so the hook
-      # doesn't fail during early scaffolding before pytest tests exist.
+      # Pytest for the main project. Test paths and ignores live in
+      # pyproject.toml's [tool.pytest.ini_options] so CLI / IDE / hook all
+      # behave identically — do not add args here. Tolerates exit code 5
+      # ("no tests collected") so the hook doesn't fail during early
+      # scaffolding before pytest tests exist.
       - id: pytest
-        name: pytest (gnnc/ + test/, excluding integration smoke)
-        entry: bash -c 'pytest -q --ignore=test/integration/lighthouse_smoke.py gnnc test; rc=$?; [ "$rc" -eq 5 ] && exit 0 || exit "$rc"'
+        name: pytest
+        entry: bash -c 'pytest; rc=$?; [ "$rc" -eq 5 ] && exit 0 || exit "$rc"'
         language: system
         pass_filenames: false
         always_run: true
