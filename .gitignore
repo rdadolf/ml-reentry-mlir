@@ -35,4 +35,4 @@ Thumbs.db
 /data/
 
 # VSCode Lit extension binary (temporary)
-.vscode/mlir-lit-test-explorer.vsix
+.vscode/lit-test-extension.vsix
