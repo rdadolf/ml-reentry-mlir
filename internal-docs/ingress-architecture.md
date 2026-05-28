@@ -1,132 +1,82 @@
-# Ingress architecture: how PyG models reach sparse-tensor IR
+# Ingress architecture (gnnc)
 
-The project's compile pipeline is
+Compile pipeline:
 
-  PyG model → torch-mlir FX importer → torch dialect → linalg-on-tensors (sparse-tensor encoded) → `--sparsifier` → gpu-codegen
+  PyG model → `torch_mlir.fx.export_and_import` → torch dialect →
+  linalg-on-tensors (sparse-encoded) → `--sparsifier` → gpu-codegen
 
-The "torch-mlir FX importer" step is where the structural problem sits.
-PyG's `MessagePassing` framework emits its computation as scatter/gather
-ops, and the FX → torch-dialect translation strips out the high-level
-structure those ops are part of. By the time the IR reaches MLIR, the
-sparsifier sees opaque int64 index tensors with no annotation of "this
-index tensor was derived from `edge_index`" and no `sparse_tensor.encoding`
-on anything.
+This doc covers ingress — getting a PyG model into MLIR with sparse types
+intact — and how to build it across the M1–M2 tickets. For what the MLIR
+`sparse_tensor` dialect can and can't express, **`sparse-tensor-framework-reference.md`
+is authoritative**; this doc defers all capability questions there and
+focuses on the gnnc build.
 
-The sparsifier needs the sparse-tensor encoding at the type level. Once
-it's there, the downstream pipeline (linalg, `--sparsifier`, gpu-codegen)
-works — see the m0/gat-gpu-codegen experiment for an empirical proof on the
-exact IR shape we need. Without it, the IR is dense + scatter-based, and
-lifting it back to sparse-tensor form at MLIR level is brittle
-pattern-matching that breaks on any model variation.
+## Committed path: sparse_csr adjacency + export
 
-## Where to intervene: pre-import FX rewriting
+The adjacency enters as a `torch.sparse_csr_tensor`, built from `edge_index`
+outside `forward` and passed as an argument; the model is traced with
+`torch_mlir.fx.export_and_import`. This is the **only** path that preserves
+`#sparse_tensor.encoding` on the MLIR function signature (ref, "PyG input
+formats under torch.compile vs torch.export").
 
-The information the sparsifier needs is present in the FX graph (before
-torch-mlir translates it) but absent in the lowered MLIR. So the rewriter
-belongs at the FX layer.
+Consequence for gnnc: **ingress uses `torch.export` directly, not
+Lighthouse's `MLIRBackend`.** `torch.compile`/Dynamo hard-refuses
+sparse-tensor inputs, and Lighthouse is migrating its default ingress to
+the compile-based backend. So gnnc owns an export-based ingress for
+sparse-input models and does not route them through `MLIRBackend` /
+`cpu_backend`. Plain-LongTensor models could use either path; the project
+standardizes on export.
 
-The package slot is reserved at `gnnc/ingress/pyg_rewrites` (currently
-unimplemented; the `gnnc.ingress` `__init__.py` reserves it explicitly).
-It operates on the FX graph PyG produces during `torch.export`: walks the
-nodes, identifies subgraphs that match PyG's `MessagePassing` emission
-patterns, replaces them with subgraphs that trace to sparse-tensor-encoded
-MLIR.
+## What each model needs at ingress
 
-Key architectural property: **the rewriter operates on PyG's FX output,
-not on the user's model code, and not on PyG's library code.** A user
-writing `GATConv(in, out, heads=...)` keeps writing exactly that. The
-rewriter sees the FX subgraph emitted by GATConv (gather → leaky_relu →
-scatter_amax → … → scatter_add) after FX export and replaces it; the user
-model and the PyG installation are both untouched. No fork, no
-monkey-patch, no model rewrite.
+| Model | Body after export | gnnc work at ingress |
+|---|---|---|
+| **GCN** | `torch.aten._sparse_mm(%adj, %x)` — direct | **None.** Feeds the verified SpMM lowering as-is. |
+| **SAGE** | `_sparse_mm` + minor `crow_indices` extraction | **None** for aggregation; root-feature path is a small side branch. |
+| **GAT** | encoding on signature, but body extracts `crow_indices`/`col_indices` and runs `[E]`-shaped gather/scatter | **`pyg_rewrites`** lifts that body to sparse-tensor ops. |
 
-## Why FX is the right level
+GCN/SAGE are end-to-end ready on this path: the sparse adjacency is consumed
+as a sparse matmul with no rewrite. The entire rewriter problem is GAT.
 
-At the FX node level, the dataflow is fully explicit:
+## pyg_rewrites (GAT only)
 
-  edge_index → select → expand → view → scatter_add(values, indices=expanded, dim=0, into=zeros)
+Lives at `gnnc/ingress/pyg_rewrites` (slot reserved in
+`gnnc.ingress.__init__`). Operates on the FX graph after `torch.export`,
+before torch-mlir lowering. Rewrite target: GAT's
+`(crow_indices, col_indices) → gather/scatter` body → a sparse-tensor
+formulation of the per-edge stages.
 
-The provenance link "this scatter's index tensor came from `edge_index`"
-is walkable backward through the FX graph. By contrast, after FX →
-torch-dialect translation, the same scatter is `tm_tensor.scatter` over
-an opaque `tensor<Ex2xi64>`; the structural connection to `edge_index`
-is no longer in the IR, and the sparsifier has no way to recover it.
+The sparse-typed adjacency is already on the function signature, so the
+rewrite has an explicit type anchor — it re-associates the `[E]`-shaped
+per-edge ops with the sparse structure, rather than recovering sparsity
+from opaque int64 arrays. Scope it to GAT's emission, not a universal
+`MessagePassing` recognizer. The phase structure and exact op sequence to
+match are in ref ("GAT forward — phase-by-phase") and DEV-139's structural
+map.
 
-This is the standard ML-compiler frontend technique — XLA does this for
-JAX, TVM does it for PyTorch, Inductor does it in pre-lowering passes.
-Frontend-specific pattern recognition that runs **before** the
-general-purpose backend gets the IR.
+## Build sequence
 
-## The rewrite catalog
-
-PyG's `MessagePassing` framework is small. Most graph convs in the
-project's scope (GCN, SAGE, GAT) compile to combinations of about five
-recurring FX patterns:
-
-| PyG emission pattern | Sparse-tensor target |
+| Ticket | Ingress deliverable |
 |---|---|
-| `gather(x, src) → scatter_add(by dst)` | `linalg.matmul` over a `sparse_tensor.encoding(CSR)`-typed adjacency |
-| `gather(x, src) → scatter_reduce(reduce='mean', by dst)` | SpMM with row-normalized adjacency, or SpMM + per-row divide |
-| `index_select(α_src, src) + index_select(α_dst, dst) + add + leaky_relu` | SDDMM as `linalg.generic` over the sparse adjacency structure |
-| `scatter_reduce(reduce='amax') → index_select → sub → exp → scatter_add → add(ε) → div` (the `torch_geometric.utils.softmax` shape) | three `sparse_tensor.reduce` blocks: segmented max, segmented exp-sum, normalize |
-| `gather(x, src) → mul by α → scatter_add(by dst)` (attention-weighted aggregation) | `linalg.generic` with `mulf + addf` reduction over sparse adjacency, attention values on edges |
+| **DEV-141** | GCN green path: `sparse_csr` adj + `torch.matmul(adj, X@W.T)` (write `torch.matmul` on the sparse operand, **not** `torch.sparse.mm` — the latter doesn't survive export with the encoding). Exported; encoding survives to linalg. The hand-shaped model is the minimal demonstrator; real `GCNConv` lands in the same `_sparse_mm` shape. |
+| **DEV-142** | Real recipe (linalg → `--sparsifier` → LLVM); GCN correct vs PyG golden, CPU then GPU at arxiv. No new ingress work. |
+| **DEV-143** | SAGE — reuses DEV-141/142 ingress; delta is reduction kind + concat, not ingress. |
+| **DEV-144** | Same GCN lowered two ways (CSR-SpMM vs COO+segment-reduce) via `--recipe`. Format is a recipe choice, not an ingress choice — ingress emits the sparse adjacency once. (COO lowers directly on CPU; GPU needs `sparse_tensor.convert`→CSR; ref Tests 6/7.) |
+| **DEV-145** | GAT unfused via `pyg_rewrites`: the **Design A floor** — per-stage `linalg.generic`/SpMM with `[E]`-shaped pre-aggregation, Inductor-like ~9 kernels. Verified achievable; does **not** depend on the SDDMM open question. |
 
-These patterns are stable because PyG's `MessagePassing` framework
-dictates the emission shape — individual conv layers (`GCNConv`,
-`GATConv`, `SAGEConv`) override `message()`/`aggregate()`/`update()` hooks
-but the framework controls how those compose into the final FX graph.
+Fusion (DEV-147 mechanism decision, DEV-149 implementation) is out of scope
+for ingress and gated by the SDDMM-shape question (ref, "Open questions").
+Ingress's job ends at producing legible, correct, unfused sparse-tensor IR.
 
-## Scope
+## Risks (project-specific)
 
-In scope:
-
-- GCN, SAGE, GAT, GIN — the project's target convs.
-- Standard combinations of the five patterns above.
-- Multi-head attention (the heads dimension is a parallel feature axis;
-  doesn't change the pattern shape).
-
-Out of scope:
-
-- Custom `MessagePassing` subclasses with non-standard `aggregate()`
-  implementations that don't compile to the recognized patterns. Behavior
-  TBD: either reject at compile time or fall through to a dense path.
-- Edge features. Adds an additional sparse-tensor dimension; would
-  require a separate pattern.
-- Models that bypass the `MessagePassing` framework entirely (writing
-  scatter/gather by hand). These should already be in green-pattern form
-  or close to it; the rewriter ignores them.
-
-## Cost and risk
-
-The rewriter is expected to be the largest single piece of M1/M2 work.
-Risks worth tracking:
-
-1. **PyG release cadence.** Patterns are stable across PyG versions in
-   framework *semantics* but the specific aten ops emitted can shift
-   between releases. Each PyG bump requires re-verifying the patterns
-   against fresh FX dumps. Mitigation: the experiments/day-zero/fx-sparsity
-   and experiments/m0/gatconv captures serve as regression fixtures —
-   re-running them after a PyG upgrade detects emission drift.
-2. **Pattern coverage gaps.** A model that almost matches a pattern but
-   with one node out of place would silently fall through (or
-   miscompile, depending on policy). Mitigation: detection logging at the
-   rewriter, so unmatched MessagePassing subgraphs are visible at compile
-   time rather than discovered as numerical disagreement.
-3. **Validation.** The rewritten subgraph must be numerically equivalent
-   to the original. Mitigation: the existing comparison harness pattern
-   (PyG eager vs compiled output on a fixed input, within tolerance) is
-   the gate.
-
-## Bracketing characterizations
-
-Two M0 experiments bracket this work:
-
-- `experiments/m0/gatconv/` — captures what PyG-as-is gives us (the
-  pre-rewrite IR shape). Verdict: `tm_tensor.scatter`-shaped, four
-  scatter sites for a single GATConv layer.
-- `experiments/m0/gat-gpu-codegen/` — proves the target IR shape
-  (`sparse_tensor.reduce` blocks over CSR + `linalg.matmul` for SpMM
-  pieces) compiles to native NVVM kernels with no library fallback.
-
-The rewriter's job is to translate between these two shapes, on FX
-graphs, before torch-mlir sees them.
+1. **Lighthouse export-path deprecation.** The sparse-input path depends on
+   export-based ingress, which Lighthouse is moving away from. gnnc must
+   keep its own export ingress and/or pin a Lighthouse commit; track the
+   follow-up to Lighthouse PR #157. *No Linear ticket yet.*
+2. **GAT fusion gate.** Whether GAT goes past Design A depends on
+   SDDMM-shape legalization — two bounded experiments (ref, "Open questions"
+   #1, #2). Run before committing DEV-147's mechanism.
+3. **PyG emission drift.** `pyg_rewrites` matches a specific FX shape; each
+   PyG bump needs re-verification against fresh dumps. The fx-sparsity /
+   gatconv captures are the regression fixtures.

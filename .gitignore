@@ -36,3 +36,6 @@ Thumbs.db
 
 # VSCode Lit extension binary (temporary)
 .vscode/lit-test-extension.vsix
+
+# I keep working notes locally, but they shouldn't be committed
+internal-docs/notes.md

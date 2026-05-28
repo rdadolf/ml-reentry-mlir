@@ -1,0 +1,106 @@
+torch=2.13.0.dev20260514+cu130  device=cuda
+
+========================================================================
+A. single GATConv, add_self_loops=True
+========================================================================
+graph_count        = 3
+graph_break_count  = 2
+op_count           = 19
+--- break 0: Dynamic shape operator
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/nn/conv/gat_conv.py:347 in forward
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/utils/loop.py:113 in remove_self_loops
+--- break 1: Dynamic shape operator
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/utils/loop.py:113 in remove_self_loops
+fullgraph=True : traces as single graph
+
+========================================================================
+B. single GATConv, add_self_loops=False
+========================================================================
+graph_count        = 1
+graph_break_count  = 0
+op_count           = 15
+fullgraph=True : traces as single graph
+
+========================================================================
+C. 2-layer GAT, add_self_loops=True
+========================================================================
+graph_count        = 6
+graph_break_count  = 5
+op_count           = 39
+--- break 0: Dynamic shape operator
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/nn/conv/gat_conv.py:347 in forward
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/utils/loop.py:113 in remove_self_loops
+--- break 1: Dynamic shape operator
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/utils/loop.py:113 in remove_self_loops
+--- break 2: Dynamic shape operator
+  at /x/workspace/experiments/dynamo-graph-breaks/run.py:61 in forward
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/nn/conv/gat_conv.py:347 in forward
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/utils/loop.py:113 in remove_self_loops
+--- break 3: Dynamic shape operator
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/nn/conv/gat_conv.py:347 in forward
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/utils/loop.py:113 in remove_self_loops
+fullgraph=True : traces as single graph
+
+========================================================================
+D. 2-layer GAT, add_self_loops=False
+========================================================================
+graph_count        = 1
+graph_break_count  = 0
+op_count           = 31
+fullgraph=True : traces as single graph
+
+========================================================================
+E. single GCNConv, add_self_loops=True, normalize=True
+========================================================================
+graph_count        = 4
+graph_break_count  = 3
+op_count           = 16
+--- break 0: Dynamic shape operator
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/utils/loop.py:650 in add_remaining_self_loops
+fullgraph=True : traces as single graph
+
+========================================================================
+F. single GCNConv, add_self_loops=False, normalize=False
+========================================================================
+graph_count        = 1
+graph_break_count  = 0
+op_count           = 4
+fullgraph=True : traces as single graph
+
+========================================================================
+G. 2-layer GCN, defaults (self_loops + normalize)
+========================================================================
+graph_count        = 6
+graph_break_count  = 5
+op_count           = 22
+--- break 0: Dynamic shape operator
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/utils/loop.py:650 in add_remaining_self_loops
+--- break 1: Dynamic shape operator
+  at /x/workspace/experiments/dynamo-graph-breaks/run.py:78 in forward
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/nn/conv/gcn_conv.py:241 in forward
+  at /x/cache/venv/lib/python3.12/site-packages/torch_geometric/nn/conv/gcn_conv.py:99 in gcn_norm
+fullgraph=True : traces as single graph
+
+========================================================================
+H. 2-layer GCN, compile-friendly
+========================================================================
+graph_count        = 1
+graph_break_count  = 0
+op_count           = 9
+fullgraph=True : traces as single graph
+
+========================================================================
+I. single SAGEConv (defaults)
+========================================================================
+graph_count        = 1
+graph_break_count  = 0
+op_count           = 6
+fullgraph=True : traces as single graph
+
+========================================================================
+J. 2-layer SAGE
+========================================================================
+graph_count        = 1
+graph_break_count  = 0
+op_count           = 13
+fullgraph=True : traces as single graph
