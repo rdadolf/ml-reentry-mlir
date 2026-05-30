@@ -36,29 +36,32 @@ def _load_dataset(name: str):
     raise ValueError(f"unknown dataset: {name}")
 
 
-def _make_model(name: str, in_channels: int, out_channels: int):
+def _make_model(name: str, in_channels: int, out_channels: int, *, hidden: int = 64):
     if name == "gcn":
-        from examples.models.gcn import make
+        from gnnc.examples.models.gcn import Model
 
-        return make(in_channels, out_channels)
+        return Model(in_channels, hidden, out_channels)
     if name == "sage":
-        from examples.models.sage import make
+        from gnnc.examples.models.sage import Model
 
-        return make(in_channels, out_channels)
-    if name == "gat":
-        from examples.models.gat import make
-
-        return make(in_channels, out_channels)
+        return Model(in_channels, hidden, out_channels)
+    # NOTE: --model gat is temporarily disabled — GAT is not yet migrated to
+    # gnnc/examples/models (still in the deprecated repo-root examples/).
     raise ValueError(f"unknown model: {name}")
 
 
 def generate(model_name: str, dataset_name: str) -> np.ndarray:
+    from gnnc.examples.models.util import normalized_csr_adj
+
     torch.manual_seed(0)
     data, in_ch, out_ch = _load_dataset(dataset_name)
     model = _make_model(model_name, in_ch, out_ch)
     model.eval()
+    # Models take a pre-normalized CSR adjacency (built the same way the
+    # ingress models build theirs), not a raw edge_index.
+    adj = normalized_csr_adj(data.edge_index, data.num_nodes)
     with torch.no_grad():
-        out = model(data.x, data.edge_index)
+        out = model(data.x, adj)
     out_np = out.cpu().numpy()
     save_golden(out_np, GOLDENS_DIR / f"{model_name}_{dataset_name}.npy")
     return out_np
@@ -66,7 +69,7 @@ def generate(model_name: str, dataset_name: str) -> np.ndarray:
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--model", required=True, choices=["gcn", "sage", "gat"])
+    parser.add_argument("--model", required=True, choices=["gcn", "sage"])
     parser.add_argument("--dataset", required=True, choices=["cora", "ogbn-arxiv"])
     args = parser.parse_args(argv)
     out = generate(args.model, args.dataset)

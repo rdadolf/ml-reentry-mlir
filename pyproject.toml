@@ -62,7 +62,9 @@ build = [
 ]
 
 [project.scripts]
-gnnc = "gnnc.cli:main"
+gnnc = "gnnc.tools.gnnc:main"
+gnnc-bench = "gnnc.tools.gnnc_bench:main"
+gnnc-opt = "gnnc.tools.gnnc_opt:main"
 
 # uv-specific wheel index resolution.
 #
