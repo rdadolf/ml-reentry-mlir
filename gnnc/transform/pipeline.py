@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from gnnc.transform.rewrites.despecialize_sparse_mm import despecialize_sparse_mm
+from gnnc.transform.rewrites.despecialize_sparse_mm_reduce import despecialize_sparse_mm_reduce
 
 if TYPE_CHECKING:
     from torch_mlir.ir import Module
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
 
 _rewrite_pipeline = [
     despecialize_sparse_mm,
+    despecialize_sparse_mm_reduce,
 ]
 
 

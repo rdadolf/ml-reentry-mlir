@@ -1,15 +1,18 @@
-// Normally PyG emits a _sparse_mm call for the SPMM. This doesn't lower to
-// MLIR's `torch` dialect, but because the sparse tensors are lowered correctly,
-// it's functionally equivalent to just a mm. We add a rewrite pass to remap it.
+// SAGE emits `_sparse_mm.reduce(A, X, "mean")` for the neighbor mean-aggregation
+// SpMM. The torch-dialect rewrite pipeline decomposes it into a plain `aten.mm`
+// (SpMM-lowerable under the sparse encoding) plus a row-nnz divide. We assert
+// the rewrite produces that shape, and that an empty-row guard (clamp_min) is
+// in place so the divide matches PyTorch's `nnz=0 -> 0` semantics.
 //
 // RUN: %gnnc %S/../../gnnc/examples/models/sage.py --dialect raw | %FileCheck %s --check-prefix=CHECK,RAW
 // RUN: %gnnc %S/../../gnnc/examples/models/sage.py --dialect torch | %FileCheck %s --check-prefix=CHECK,TORCH
-
-// XFAIL: *
 
 // CHECK: #sparse_tensor.encoding
 
 // RAW: torch.aten._sparse_mm.reduce
 
 // TORCH-NOT: torch.aten._sparse_mm.reduce
-// FIXME We still need a rewrite for this
+// TORCH: torch.aten.mm
+// torch-mlir canonicalizes `clamp_min` to `clamp` with `none` max — same op.
+// TORCH: torch.aten.clamp
+// TORCH: torch.aten.div.Tensor
