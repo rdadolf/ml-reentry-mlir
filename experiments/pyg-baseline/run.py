@@ -39,17 +39,53 @@ if "--disable-libs" in sys.argv:
 
 
 import torch  # noqa: E402
+import torch.nn.functional as F  # noqa: E402
 import torch_geometric  # noqa: E402
 import torch_geometric.typing as tt  # noqa: E402
 from ogb.nodeproppred import PygNodePropPredDataset  # noqa: E402
+from torch import nn  # noqa: E402
+from torch_geometric.nn import GATConv, GCNConv, SAGEConv  # noqa: E402
 
 import gnnc._torch_load_compat  # noqa: F401, E402  (PyG safe-globals for OGB)
-from examples.models.gat import GAT  # noqa: E402
-from examples.models.gcn import GCN  # noqa: E402
-from examples.models.sage import SAGE  # noqa: E402
 from gnnc.paths import DATA_DIR  # noqa: E402
 
 warnings.filterwarnings("ignore")
+
+
+# Reference models: two-layer GCN / GraphSAGE / GAT with stock PyG conv layers.
+# Stock layers, no message-passing rewrites — these forward outputs are the
+# eager-mode baseline this experiment times against.
+class GCN(nn.Module):
+    def __init__(self, in_ch: int, hidden: int, out_ch: int) -> None:
+        super().__init__()
+        self.conv1 = GCNConv(in_ch, hidden)
+        self.conv2 = GCNConv(hidden, out_ch)
+
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        return F.log_softmax(self.conv2(F.relu(self.conv1(x, edge_index)), edge_index), dim=-1)
+
+
+class SAGE(nn.Module):
+    def __init__(self, in_ch: int, hidden: int, out_ch: int) -> None:
+        super().__init__()
+        self.conv1 = SAGEConv(in_ch, hidden)
+        self.conv2 = SAGEConv(hidden, out_ch)
+
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        return F.log_softmax(self.conv2(F.relu(self.conv1(x, edge_index)), edge_index), dim=-1)
+
+
+class GAT(nn.Module):
+    # `heads=4` is modest for fast iteration; the GAT fusion thesis exercises
+    # 8/16 heads. `concat=False` on the final layer averages heads instead of
+    # stacking, so the output dim is `out_ch` and not `out_ch * heads`.
+    def __init__(self, in_ch: int, hidden: int, out_ch: int, *, heads: int = 4) -> None:
+        super().__init__()
+        self.conv1 = GATConv(in_ch, hidden, heads=heads, concat=True)
+        self.conv2 = GATConv(hidden * heads, out_ch, heads=1, concat=False)
+
+    def forward(self, x: torch.Tensor, edge_index: torch.Tensor) -> torch.Tensor:
+        return F.log_softmax(self.conv2(F.elu(self.conv1(x, edge_index)), edge_index), dim=-1)
 
 
 def gpu_info() -> dict:
