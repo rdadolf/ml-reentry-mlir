@@ -30,24 +30,14 @@ def run_jit(lowered: _ir.Module, results: list, inputs: tuple) -> list[torch.Ten
     sparse-CSR layouts are decomposed here into the component dense tensors
     that `sparse-assembler` exposes at the function boundary.
     """
-    import os
-
     from lighthouse.ingress.torch.compile import JITFunction
-    from lighthouse.utils.mlir import get_mlir_library_path
     from mlir import ir
 
     from gnnc.compile import _get_ir_context
 
-    # libmlir_c_runner_utils.so provides the sparse runtime symbols
-    # (newSparseTensor, sparsePositions/Coordinates/Values) the sparsifier
-    # recipe emits calls to. Lighthouse's Runner auto-links this; JITFunction
-    # doesn't, so we pass it explicitly. Harmless for non-sparse paths.
-    libdir = str(get_mlir_library_path())
-    shared_libs = [os.path.join(libdir, "libmlir_c_runner_utils.so")]
-
     ctx = _get_ir_context()
     with ctx, ir.Location.unknown():
-        jit = JITFunction(lowered, results, shared_libs=shared_libs)
+        jit = JITFunction(lowered, results)
         return jit(*_decompose_sparse(inputs))
 
 
