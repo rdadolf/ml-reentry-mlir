@@ -22,7 +22,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch_geometric.nn import SAGEConv
 
-from gnnc.examples.models.util import ring_csr_adj
+from gnnc.examples.util import ring_csr_adj
 
 _IN, _HIDDEN, _OUT, _NODES = 4, 8, 3, 5
 

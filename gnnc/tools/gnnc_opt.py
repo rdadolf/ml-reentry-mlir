@@ -55,11 +55,11 @@ def main(argv: list[str] | None = None) -> int:
     module = ir.Module.parse(text, ctx)
 
     if args.transform:
-        from gnnc.transform import run as run_transforms
+        from gnnc.compile import run_transforms
 
         run_transforms(module)
     if args.lower:
-        from gnnc.lowering import lower
+        from gnnc.compile import lower
 
         lower(module, args.lower)
 

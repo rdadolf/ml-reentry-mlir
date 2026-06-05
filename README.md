@@ -1,37 +1,20 @@
-# ml-reentry-mlir (`gnnc`)
+# GNNC
 
-Ahead-of-time compiler for Graph Neural Networks:
-**PyTorch Geometric → torch-mlir → MLIR (linalg → sparse-tensor) → GPU/CPU.**
+An experimental MLIR-based compiler for Graph Neural Networks.
+
+This is a learning/proof-of-concept project. There's been a bunch of work on GNN compilers, but the landscape has gradually settled into PyG as a home for most users and researchers, especially for new models, and either bespoke implementations or a gradually-fading DGL.
+
+One of the interesting parts of GNN compilers to me has always been aggressive kernel fusion. Most research efforts have tried it, and DGL certainly leveraged it in the practical space. Ultiamtely, though, most tools (the TVM folks excepted) relied on hand-tuned, hardcoded monolithic GPU kernels to carry the day. PyG, notably though, hasn't really gone down that path very far, and I'm casually interested in the compiler alternative for getting the best of both worlds: how far we can go with IR-level fusion and better codegen while retaining the benefits of PyG (and perhaps more importantly, its ecosystem and users). Despite not really being designed for it, triton has had a fair amount of success with it in more mainstream models, and I don't think the community has really pushed the idea as far as it can go.
+
+In any case, that's what this project is. I took a stab at this problem back in 2020, but a lot of the pieces just weren't ready. Aart and the folks behind the `sparse_tensor` dialect deserve a lot of the credit for the fact that is no longer true, but Torch itself has made a lot of strides in tracing, compilation, and integration, which have helped tremendously. I'm also looking forward to taking advantage of MLIR's Lighthouse effort, which is still young but shaping up well.
 
 ## Architecture
 
-Pipeline: a PyG model is FX-imported to MLIR, lowered by a named **recipe**,
-JIT-executed, and checked against a PyG **golden**.
+**PyTorch Geometric → torch-mlir → MLIR (linalg → sparse-tensor) → GPU/CPU.**
 
-```
-PyG model ─▶ torch-mlir FX importer ─▶ linalg-on-tensors
-          ─▶ recipe (sparse-tensor + GPU lowering) ─▶ ExecutionEngine ─▶ result
-                              │                              │
-                         (golden compare) ◀──────────────────┘
-```
+Pipeline: a PyG model is FX-imported to MLIR, lowered by a pass recipe,
+JIT-executed, and checked against PyG running normally.
 
-Building blocks:
-
-- **`third_party/` submodules** — `llvm-project` + `torch-mlir` (source-built;
-  see `third_party/README.md` for pins), `lighthouse` (consumed in-tree, on
-  PYTHONPATH), the PyG libs (`pytorch_scatter/sparse`, `pyg-lib`).
-- **Lighthouse** — provides ingress, the YAML pipeline/recipe driver, and
-  execution. We re-export it; we do not fork it. (See
-  [internal-docs/lighthouse-integration-research.md](internal-docs/lighthouse-integration-research.md).)
-- **`gnnc/`** — `ingress`/`execution` (thin Lighthouse re-exports),
-  `recipes/` (YAML pipelines, e.g. `cpu/passthrough.yaml`), `harness/`
-  (golden generation + tolerance compare). The `gnn.*` MLIR dialect is a
-  future out-of-tree satellite, not part of Lighthouse.
-- **`tools/`** — build scripts + `env.sh` (puts the source builds on
-  PATH/PYTHONPATH).
-
-Goal, design rationale, and sprint plan:
-[internal-docs/project-summary.md](internal-docs/project-summary.md).
 
 ## Common commands
 
@@ -56,10 +39,7 @@ source tools/env.sh
 Run / test:
 
 ```bash
-gnnc run --model gcn --dataset cora --recipe cpu/passthrough --target cpu
-
-python test/integration/lighthouse_smoke.py   # end-to-end wiring check
-python -m gnnc.harness.golden --model gcn --dataset cora   # regenerate a golden
+gnnc-bench --model gcn --dataset cora --recipe cpu/sparse-basic   # compile + run + compare
 lit test/                                     # MLIR pipeline lit tests
 pre-commit run --all-files                    # ruff + hygiene (host-side)
 ```

@@ -1,79 +1,93 @@
-"""gnnc-bench — end-to-end compile + execute + reference comparison.
+"""gnnc-bench: compile a model, execute it, compare to torch.
 
-    gnnc-bench --model gcn --dataset cora --recipe cpu/passthrough --target cpu
+    gnnc-bench --model mlp
+    gnnc-bench --model gcn --dataset cora
+    gnnc-bench --model gcn --dataset cora --recipe cpu/passthrough
 
-Currently resolves a recipe (a Lighthouse YAML pipeline under `gnnc/recipes/`)
-and validates it by parsing through Lighthouse's pipeline descriptor — proving
-the gnnc -> Lighthouse wiring. Wiring the full ingress -> recipe -> runner
-execution path is a later phase.
+Resolves `--model` to a file under `gnnc/examples/models/`, runs the gnnc
+compile pipeline through the `--recipe`, JIT-executes via Lighthouse's
+`JITFunction`, and compares the output against a torch run of the same model.
 
-(Was `gnnc run`; moved to its own tool so `gnnc` itself is the model-file ->
-MLIR emitter.)
+Omit `--dataset` for non-graph models (e.g. the MLP) — the model file's
+own `get_inputs()` is used. Named datasets (`cora`, `ogbn-arxiv`) override
+the inputs with real graph data and re-shape the model's `in/out_channels`
+to match.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
-from typing import TYPE_CHECKING
+
+import numpy as np
 
 from gnnc import __version__, paths, recipes
+from gnnc.examples import MODELS_DIR, available
+from gnnc.ingress import get_model_and_data
 from gnnc.tools.util import stack_unimportable_message
-
-if TYPE_CHECKING:
-    import numpy as np
-
-
-def evaluate(
-    model: str, dataset: str, *, recipe: str | None = None, target: str = "cpu"
-) -> np.ndarray:
-    """Compile `model` on `dataset` through `recipe` and execute, returning
-    the output as a numpy array — for comparison against the known-good golden.
-
-    NOT IMPLEMENTED. Wiring ingress -> transform -> recipe lowering -> Runner ->
-    output array is the gnnc-bench buildout. The bench golden tests
-    (`test/bench/`) are written against this signature and xfail until it lands.
-    """
-    raise NotImplementedError("gnnc-bench compile+execute is not implemented yet")
 
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
-        prog="gnnc-bench", description="Compile and execute a GNN model."
+        prog="gnnc-bench",
+        description="Compile a model and compare its output to torch eager.",
     )
-    parser.add_argument("--model", required=True, choices=["gcn", "sage"])
-    parser.add_argument("--dataset", required=True, choices=["cora", "ogbn-arxiv"])
+    parser.add_argument("--model", required=True, choices=available())
+    parser.add_argument(
+        "--dataset",
+        default=None,
+        choices=["cora", "ogbn-arxiv"],
+        help="Optional real-dataset inputs; omit for synthetic get_inputs().",
+    )
     parser.add_argument(
         "--recipe",
-        required=True,
-        help=f"Recipe name under gnnc/recipes (e.g. 'cpu/passthrough'). Known: {recipes.available()}",
+        default="cpu/sparse-basic",
+        help=(
+            f"Recipe `<target>/<name>` under gnnc/recipes (default: cpu/sparse-basic). "
+            f"Known: {recipes.available()}"
+        ),
     )
-    parser.add_argument("--target", required=True, choices=["cpu", "cuda"])
     args = parser.parse_args(argv)
 
     print(f"gnnc-bench {__version__}")
     print(f"  model    : {args.model}")
-    print(f"  dataset  : {args.dataset}")
+    print(f"  dataset  : {args.dataset or '<synthetic>'}")
     print(f"  recipe   : {args.recipe}")
-    print(f"  target   : {args.target}")
     print(f"  DATA_DIR : {paths.DATA_DIR}")
-    print(f"  CACHE_DIR: {paths.CACHE_DIR}")
 
     try:
-        recipe_path = recipes.resolve(args.recipe)
-    except ValueError as exc:
-        print(f"error: {exc}", file=sys.stderr)
-        return 2
+        import torch
 
-    try:
-        stages = recipes.load(args.recipe)
+        from gnnc.compile import compile_through_recipe
+        from gnnc.execution import run_jit
+
+        model, forward_inputs = get_model_and_data(MODELS_DIR / f"{args.model}.py", args.dataset)
+        model.eval()
+        with torch.no_grad():
+            ref = model(*forward_inputs).cpu().numpy()
+        lowered, results = compile_through_recipe(model, forward_inputs, recipe=args.recipe)
+        outs = run_jit(lowered, results, forward_inputs)
     except ImportError as exc:
         print(stack_unimportable_message(exc), file=sys.stderr)
         return 3
+    except (ValueError, NotImplementedError) as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
 
-    print(f"  recipe ok: {recipe_path} ({len(stages)} stages)")
-    for s in stages:
-        print(f"    - {s}")
+    if len(outs) != 1:
+        print(f"error: multi-output models not yet supported (got {len(outs)})", file=sys.stderr)
+        return 2
+    actual = outs[0].cpu().numpy()
+
+    max_abs = float(np.abs(actual - ref).max())
+    print(f"  out shape: {actual.shape}, max abs diff vs torch: {max_abs:.3e}")
+    try:
+        np.testing.assert_allclose(actual, ref, rtol=1e-3, atol=1e-4)
+    except AssertionError as exc:
+        print("FAIL")
+        print(exc)
+        return 1
+    print("PASS")
     return 0
 
 

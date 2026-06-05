@@ -22,7 +22,7 @@ import torch.nn.functional as F
 from torch import nn
 from torch_geometric.nn import GCNConv
 
-from gnnc.examples.models.util import ring_csr_adj
+from gnnc.examples.util import ring_csr_adj
 
 # Toy dimensions for hermetic ingress / lit. gnnc-bench overrides via
 # import_from_file(model_init_args=..., sample_args=...) for real datasets.

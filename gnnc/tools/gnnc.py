@@ -22,17 +22,11 @@ from gnnc.tools.util import DIALECTS, stack_unimportable_message, write_output
 
 
 def _emit(model_file: str, dialect: str) -> str:
-    from gnnc.ingress.importer import import_model_module
+    from gnnc.compile import compile_to_dialect
+    from gnnc.ingress import get_model_and_data
 
-    module = import_model_module(model_file)  # raw torch-dialect import
-    if dialect == "raw":
-        return str(module)
-
-    from gnnc.lowering import lower
-    from gnnc.transform import run as run_transforms
-
-    run_transforms(module)  # canonicalize torch dialect (e.g. _sparse_mm -> mm)
-    lower(module, dialect)
+    model, forward_inputs = get_model_and_data(Path(model_file))
+    module = compile_to_dialect(model, forward_inputs, dialect=dialect)
     return str(module)
 
 

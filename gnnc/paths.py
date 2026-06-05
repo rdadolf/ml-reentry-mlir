@@ -25,5 +25,3 @@ CACHE_DIR: Path = _resolve(
     "GNNC_CACHE_DIR",
     Path(os.environ.get("XDG_CACHE_HOME", str(Path.home() / ".cache"))) / "gnnc",
 )
-
-GOLDENS_DIR: Path = DATA_DIR / "goldens"

@@ -34,10 +34,9 @@ Two questions:
    fuse across stages is to eliminate the breaks before they happen.
 
 Both questions feed the v0 ingress design: the project plans
-`gnnc.ingress.pyg_rewrites` as an **FX-level rewriter**
-([internal-docs/ingress-architecture.md](../../internal-docs/ingress-architecture.md))
-that operates on a single FX `GraphModule`. If any of these convs ship
-with unfixable breaks under PyG's current API, that design is dead.
+`gnnc.ingress.pyg_rewrites` as an **FX-level rewriter** that operates on
+a single FX `GraphModule`. If any of these convs ship with unfixable
+breaks under PyG's current API, that design is dead.
 
 ## Procedure
 
@@ -189,8 +188,7 @@ Concrete recipe for the gnnc ingress path:
   `fullgraph=True`, and matches PyG's own recommendation.
 - `pyg_rewrites` does its declared job (recognize the message-pass
   gather/scatter shape, rewrite to sparse-tensor IR) on the resulting
-  clean single-graph trace. Unchanged from
-  [internal-docs/ingress-architecture.md](../../internal-docs/ingress-architecture.md).
+  clean single-graph trace.
 
 ## Verdict
 

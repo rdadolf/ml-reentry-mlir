@@ -1,0 +1,15 @@
+# Default sparse tensor lowering for CPU
+Pipeline:
+  - pass: "func.func(llvm-request-c-wrappers)"
+  # Match Python's FFI for sparse tensors by rewriting function interfaces to
+  # accept dense memrefs for the decomposed sparse components. (This is the
+  # the recommended way, over `enable-runtime-library=true`.)
+  - pass: "sparse-assembler{direct-out}"
+
+  - pass: "sparsifier"
+  # Normal lighthouse-style lowering to LLVM.
+  - include: bufferization.yaml
+  - include: bufferization_cleanup.yaml
+  - pass: convert-linalg-to-loops
+  - include: llvm_lowering.yaml
+  - include: cleanup.yaml
