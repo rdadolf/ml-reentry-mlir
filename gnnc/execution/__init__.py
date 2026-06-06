@@ -30,14 +30,30 @@ def run_jit(lowered: _ir.Module, results: list, inputs: tuple) -> list[torch.Ten
     sparse-CSR layouts are decomposed here into the component dense tensors
     that `sparse-assembler` exposes at the function boundary.
     """
+    import os
+
     from lighthouse.ingress.torch.compile import JITFunction
+    from lighthouse.utils.mlir import get_mlir_library_path
     from mlir import ir
 
     from gnnc.compile import _get_ir_context
 
+    # libmlir_cuda_runtime.so is linked only when the lowered module
+    # actually has GPU content. Linking it unconditionally — even when
+    # the kernel never calls into it — corrupts later JIT engines in the
+    # same process: subsequent gpu-codegen invocations segfault in
+    # cuStreamSynchronize/Destroy, likely because the runtime's CUDA
+    # context init/teardown gets re-entered across ExecutionEngine
+    # lifetimes. Sniffing the module text keeps cpu-only runs out of the
+    # cuda runtime entirely.
+    shared_libs = []
+    if "gpu.binary" in str(lowered) or "mgpu" in str(lowered):
+        libdir = str(get_mlir_library_path())
+        shared_libs.append(os.path.join(libdir, "libmlir_cuda_runtime.so"))
+
     ctx = _get_ir_context()
     with ctx, ir.Location.unknown():
-        jit = JITFunction(lowered, results)
+        jit = JITFunction(lowered, results, shared_libs=shared_libs)
         return jit(*_decompose_sparse(inputs))
 
 

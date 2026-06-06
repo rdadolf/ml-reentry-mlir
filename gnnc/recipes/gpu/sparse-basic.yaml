@@ -1,0 +1,22 @@
+# Direct GPU codegen via the sparsifier (no cuSPARSE library calls).
+#
+# Mirrors cpu/sparse-basic but flips the sparsifier into its native GPU
+# codegen path. The load-bearing options
+# (enable-runtime-library=false + parallelization-strategy=dense-outer-loop
+# + gpu-num-threads=N) plus the gpu-triple/chip/features/format group are
+# what make the sparsifier emit gpu.launch_func + gpu.binary instead of
+# host loops. See experiments/gpu-sparsifier/README.md for the
+# characterization that established these as load-bearing.
+#
+# Unlike cpu/sparse-basic, no follow-up bufferization / llvm_lowering /
+# cleanup stages: with enable-runtime-library=false the sparsifier runs
+# the entire bufferization + linalg-to-loops + LLVM-lowering chain
+# internally and leaves a fully-lowered LLVM module with an embedded
+# gpu.binary fatbinary.
+#
+# GPU target is hard-coded to sm_89 (Ada Lovelace, RTX 4070). Make this
+# a recipe-loader parameter when we care about portability.
+Pipeline:
+  - pass: "func.func(llvm-request-c-wrappers)"
+  - pass: "sparse-assembler{direct-out}"
+  - pass: "sparsifier{enable-runtime-library=false parallelization-strategy=dense-outer-loop gpu-num-threads=128 gpu-triple=nvptx64-nvidia-cuda gpu-chip=sm_89 gpu-features=+ptx80 gpu-format=fatbin}"

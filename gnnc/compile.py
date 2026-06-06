@@ -96,7 +96,7 @@ def compile_through_recipe(
     from mlir import ir
 
     target = recipe.split("/", 1)[0]
-    if target != "cpu":
+    if target not in ("cpu", "gpu"):
         raise NotImplementedError(f"target {target!r} (from recipe {recipe!r}) not supported yet")
 
     module = compile_to_dialect(model, forward_inputs, dialect="linalg-on-tensors")
@@ -109,7 +109,11 @@ def compile_through_recipe(
     with ctx, ir.Location.unknown():
         m = ir.Module.parse(text)
         backend = MLIRBackend(
-            device=torch.device(target),
+            # Result buffers are allocated on the host regardless of target.
+            # The gpu recipe emits implicit mgpuMemAlloc/Memcpy around the
+            # kernel, so the host buffer we pass as a return arg is what the
+            # kernel writes to after the device->host copy.
+            device=torch.device("cpu"),
             fn_compile=lambda mod: _drive_recipe(mod, ctx, recipe),
             ir_context=ctx,
         )
