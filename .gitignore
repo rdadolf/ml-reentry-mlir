@@ -38,4 +38,4 @@ Thumbs.db
 .vscode/lit-test-extension.vsix
 
 # I keep working notes locally, but they shouldn't be committed
-internal-docs/notes.md
+tmp-docs/

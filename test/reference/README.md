@@ -1,7 +1,7 @@
 # Reference MLIR snapshots
 
-Pinned MLIR from the gnnc pipeline (ingress -> `gnnc.transform` -> torch-mlir
-lowering), captured per model and dialect. These are regression fixtures:
+Pinned MLIR from the gnnc pipeline (ingress -> `gnnc.conversion.tm_tensor_to_torch`
+-> torch-mlir lowering), captured per model and dialect. These are regression fixtures:
 after an LLVM / torch-mlir / PyG bump, regenerate and diff to detect emission
 drift (same role as the `experiments/fx-sparsity` and `experiments/gatconv`
 captures).
@@ -18,7 +18,7 @@ Regenerate any file with:
 | SAGE | ✅ `sage.raw.mlir` | ❌ | ❌ |
 
 - `raw`: pristine FX import (`torch.aten._sparse_mm`, pre-rewrite).
-- `torch`: after `gnnc.transform` (`_sparse_mm` -> `aten.mm`) + torch-backend legalization.
+- `torch`: after `gnnc.conversion.tm_tensor_to_torch` (`_sparse_mm` -> `aten.mm`) + torch-backend legalization.
 - `linalg-on-tensors`: + lowering to linalg, with `#sparse_tensor.encoding` on the adjacency operand.
 
 **SAGE `torch`/`linalg` are not yet legal:** stock `SAGEConv` emits

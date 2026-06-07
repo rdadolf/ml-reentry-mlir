@@ -12,7 +12,7 @@ from torch_mlir import ir
 from torch_mlir.dialects import torch as torch_d
 from torch_mlir.extras.fx_importer import TORCH_DTYPE_TO_INT
 
-from gnnc.transform.rewrites.util import TorchTensorTypeInfo, VTensor_get
+from gnnc.conversion.tm_tensor_to_torch.util import TorchTensorTypeInfo, VTensor_get
 
 
 def _rewriter(op, rewriter) -> bool:

@@ -2,9 +2,7 @@
 
     gnnc path/to/model.py [--dialect raw] [-o out.mlir]
 
-Flow: ingress (raw torch-dialect import) -> gnnc.transform (torch rewrites, for
-any non-raw dialect) -> torch-mlir lowering to the requested dialect.
-
+Dialect targets:
   raw                : pristine FX import (torch.aten._sparse_mm, no rewrites)
   torch              : after rewrites + torch-backend legalization
   linalg-on-tensors  : + lowering to linalg (tosa / stablehlo likewise)

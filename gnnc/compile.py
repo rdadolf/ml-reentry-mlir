@@ -19,8 +19,8 @@ from __future__ import annotations
 import functools
 from typing import TYPE_CHECKING
 
+from gnnc.conversion.tm_tensor_to_torch import run as run_transforms
 from gnnc.ingress import import_as_raw_ir
-from gnnc.transform import run as run_transforms
 
 if TYPE_CHECKING:
     import torch
@@ -95,9 +95,8 @@ def compile_through_recipe(
     from lighthouse.ingress.torch.compile import MLIRBackend
     from mlir import ir
 
-    target = recipe.split("/", 1)[0]
-    if target not in ("cpu", "gpu"):
-        raise NotImplementedError(f"target {target!r} (from recipe {recipe!r}) not supported yet")
+    if recipe not in _RECIPE_KWARGS:
+        raise NotImplementedError(f"unknown recipe {recipe!r}; known: {sorted(_RECIPE_KWARGS)}")
 
     module = compile_to_dialect(model, forward_inputs, dialect="linalg-on-tensors")
     text = str(module)
@@ -145,12 +144,15 @@ def _get_ir_context() -> _ir.Context:
     return ctx
 
 
+_RECIPE_KWARGS = {
+    "cpu/passthrough": {"target": "cpu", "has_sparse": False},
+    "cpu/sparse-basic": {"target": "cpu", "has_sparse": True},
+    "gpu/sparse-basic": {"target": "gpu", "has_sparse": True},
+}
+
+
 def _drive_recipe(module, ctx, recipe: str):
-    """`fn_compile` callback for `MLIRBackend`: drive the named recipe via Lighthouse."""
-    from lighthouse.pipeline.driver import PipelineDriver
+    """`fn_compile` callback for `MLIRBackend`: build and apply the named recipe."""
+    from gnnc.schedule.sparse import build_pipeline
 
-    from gnnc import recipes
-
-    driver = PipelineDriver(ctx)
-    driver.add_stages(recipes.load(recipe))
-    return driver.apply(module)
+    return build_pipeline(ctx=ctx, **_RECIPE_KWARGS[recipe]).apply(module)
