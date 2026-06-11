@@ -1,0 +1,9 @@
+@LIT_SITE_CFG_IN_HEADER@
+
+# Build-tree paths injected by CMake (configure_lit_site_cfg). The real config
+# logic lives in lit.cfg.py, which prefers these when present and otherwise
+# derives them from GNNC_CACHE_DIR (so the no-CMake VSCode runner still works).
+# ruff: noqa: F821
+config.gnnc_plugin = "@GNNC_PLUGIN_PATH@"
+
+lit_config.load_config(config, "@GNNC_TEST_SOURCE_DIR@/lit.cfg.py")

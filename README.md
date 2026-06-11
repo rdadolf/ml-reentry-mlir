@@ -18,28 +18,29 @@ JIT-executed, and checked against PyG running normally.
 
 ## Common commands
 
-First time after clone (the multi-GB builds; devcontainer runs
+First time after clone (the multi-GB builds; the devcontainer runs
 `uv sync --extra dev` automatically):
 
 ```bash
 git submodule update --init --recursive
 uv sync --extra dev
-bash tools/build-llvm.sh                     # ~30 min cold; cached after
+bash tools/build-llvm.sh                      # ~30 min cold; ccache after
 bash tools/build-torch-mlir.sh
-bash tools/build-pyg-libs.sh                 # optional: PyG baseline only
+bash tools/build-gnnc.sh                       # gnnc's C++ MLIR passes
+bash tools/link-stack.sh                       # link mlir/torch-mlir/lighthouse into the venv
+bash tools/build-pyg-libs.sh                   # optional: PyG baseline only
 ```
 
-Every shell (puts mlir-opt, FileCheck, and the mlir/torch-mlir/lighthouse
-Python packages on PATH/PYTHONPATH):
-
-```bash
-source tools/env.sh
-```
+The Python stack (mlir / torch-mlir / lighthouse) is linked into the venv by
+`tools/link-stack.sh`, so the CLIs, pytest, and the editor import it directly —
+no `PYTHONPATH`. Re-run it only after the venv is recreated. `source tools/env.sh`
+is optional: it just puts the LLVM tools (`mlir-opt`, `FileCheck`, …) on your PATH
+for interactive use.
 
 Run / test:
 
 ```bash
 gnnc-bench --model gcn --dataset cora --recipe cpu/sparse-basic   # compile + run + compare
-lit test/                                     # MLIR pipeline lit tests
-pre-commit run --all-files                    # ruff + hygiene (host-side)
+lit test/                                      # MLIR pipeline + pass lit tests
+pre-commit run --all-files                     # ruff + hygiene + lit + pytest (in-container)
 ```

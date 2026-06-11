@@ -5,9 +5,6 @@
   // as needed.
   "window.title": "ml-reentry-mlir",
 
-  // WSL-side Python interpreter. Change this if using a project venv:
-  // "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
-  "python.defaultInterpreterPath": "python3",
   "python.analysis.typeCheckingMode": "off",
 
   // Testing sidebar. Pytest is configured in pyproject.toml

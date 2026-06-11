@@ -6,7 +6,7 @@
 # Install: `pre-commit install` (one-time, inside the devcontainer).
 # Run manually: `pre-commit run --all-files`.
 #
-# clang-format will be added in week 2 when the first C++ in dialect/ lands.
+# clang-format will be added once the C++ under gnnc/src is ready for it.
 #
 # `exclude` keeps every hook off two kinds of path:
 #

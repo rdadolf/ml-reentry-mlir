@@ -16,9 +16,9 @@
 // appear *anywhere* in the lowered IR — any of them would mean the
 // sparsifier picked the libgen path instead of native codegen.
 //
-// RUN: %mlir-opt %S/../reference/gcn.linalg-on-tensors.mlir \
+// RUN: mlir-opt %S/../reference/gcn.linalg-on-tensors.mlir \
 // RUN:   --sparsifier="enable-runtime-library=false parallelization-strategy=dense-outer-loop gpu-num-threads=128 gpu-triple=nvptx64-nvidia-cuda gpu-chip=sm_89 gpu-features=+ptx80 gpu-format=fatbin" \
-// RUN: | %FileCheck %s \
+// RUN: | FileCheck %s \
 // RUN:     --implicit-check-not=mgpuSpMM \
 // RUN:     --implicit-check-not=mgpuSDDMM \
 // RUN:     --implicit-check-not=mgpuCreateSparseEnv \

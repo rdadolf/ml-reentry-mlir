@@ -1,8 +1,7 @@
-"""Shared helpers for the `gnnc` / `gnnc-opt` / `gnnc-bench` CLIs.
+"""Shared helpers for the `gnnc-import` / `gnnc-opt` / `gnnc-bench` CLIs.
 
-Centralizes the bits all three repeat: the dialect list, stdin/stdout file
-I/O, and the torch-mlir-not-importable error message. Keeping each tool a
-thin argparse + dispatch layer.
+Centralizes the bits all three repeat: the dialect list and stdin/stdout file
+I/O. Keeping each tool a thin argparse + dispatch layer.
 """
 
 from __future__ import annotations
@@ -35,12 +34,3 @@ def write_output(text: str, path: str) -> None:
         print(text)
     else:
         Path(path).write_text(text)
-
-
-def stack_unimportable_message(exc: ImportError) -> str:
-    """Uniform error text when the source-built torch-mlir / Lighthouse stack
-    isn't on `sys.path`."""
-    return (
-        f"error: torch-mlir / Lighthouse not importable: {exc}\n"
-        "  (source tools/env.sh after building the LLVM/torch-mlir stack)"
-    )

@@ -44,6 +44,33 @@ Have the elementwise fusion pass propagate `#sparse_tensor.encoding` from a spar
 
 **Status: unconfirmed.** Verified via local pass-by-pass IR diff that the pre-fuse linalg-on-tensors IR has zero such dense reshapes on sparse operands, and post-fuse has two. Have not confirmed via upstream issue tracker or discourse whether the omission is an unintentional gap or a deliberate choice (sparse-encoding-aware reshape math may have correctness concerns the fusion pass declines to handle). Investigate before submitting as a bug.
 
-----
+## [lighthouse] No hook to work around the auto-detect in `get_mlir_library_path()`
 
-Lighthouse: YAML files were hard to work with, honestly. I needed pre-legalization rewrite passes and custom passes written using Python bindings, both of which were not possible. Having the behavior depend on file extensions really messed up extensibility, too, since *all* Python files were
+**Problem:**
+`lighthouse/utils/mlir.py:get_mlir_library_path()` decides where the MLIR runtime
+libs (`libmlir_c_runner_utils.so`, …) live by **sniffing the mlir package's
+filesystem path**: if `str(Path(ir.__file__).parent)` contains `"python_packages"`
+it assumes a build tree and looks in `…/lib/`; otherwise it assumes a wheel
+install and looks in `<pkg>/_mlir_libs/`. `Runner.__init__` calls it
+**unconditionally**, so *every* JIT run depends on the guess, and it
+`assert`-raises when the guess is wrong.
+
+Any install layout that isn't exactly one of those two shapes breaks it. We hit
+it consuming a **source build via a `site-packages` symlink**
+(`site-packages/mlir -> …/python_packages/mlir_core/mlir`, to make the package
+importable + Pylance-resolvable without `PYTHONPATH`): the package path now reads
+as *installed* (no `"python_packages"`), so it searches `_mlir_libs/` — but a
+build tree keeps the runtime libs in `…/llvm/lib`, not `_mlir_libs/`.
+
+The auto-detect miss is forgivable. The problem is that there's no bypass for it.
+The `shared_libs` argument is both too late (`get_mlir_library_path()` is
+already called and raised an exception) *and* not flexible enough (you can't
+override the `libmlir_c_runner_utils.so` with an absolute path because of the
+way the string matching is performed).
+
+**Preferred fix:**
+The path-sniffing is not particularly robust and could be better, but I'd be fine
+with a search directory override or even just changing the code so that a list
+of absolute paths can succeed without `get_mlir_library_path()` throwing or the
+`libmlir_c_runner_utils.so` mistakenly being added as a duplicate of an absolute
+path.

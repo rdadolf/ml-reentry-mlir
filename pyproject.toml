@@ -62,7 +62,7 @@ build = [
 ]
 
 [project.scripts]
-gnnc = "gnnc.tools.gnnc:main"
+gnnc-import = "gnnc.tools.gnnc_import:main"
 gnnc-bench = "gnnc.tools.gnnc_bench:main"
 gnnc-opt = "gnnc.tools.gnnc_opt:main"
 

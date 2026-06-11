@@ -1,4 +1,4 @@
-// RUN: %mlir-opt %s --canonicalize | %FileCheck %s
+// RUN: mlir-opt %s --canonicalize | FileCheck %s
 //
 // Smoke test: validates that lit, mlir-opt, and FileCheck are all wired up.
 // A trivially-canonicalizable arithmetic op (add of two constants) is folded

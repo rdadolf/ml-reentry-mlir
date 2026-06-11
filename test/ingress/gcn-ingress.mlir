@@ -2,8 +2,8 @@
 // to the `torch` dialect, but because the sparse tensors correctly keep a
 // sparse encoding, a normal matmul works fine. A rewrite pass remaps it.
 //
-// RUN: %gnnc %S/../../gnnc/examples/models/gcn.py --dialect raw | %FileCheck %s --check-prefix=CHECK,RAW
-// RUN: %gnnc %S/../../gnnc/examples/models/gcn.py --dialect torch | %FileCheck %s --check-prefix=CHECK,TORCH
+// RUN: gnnc-import %S/../../gnnc/examples/models/gcn.py --dialect raw | FileCheck %s --check-prefix=CHECK,RAW
+// RUN: gnnc-import %S/../../gnnc/examples/models/gcn.py --dialect torch | FileCheck %s --check-prefix=CHECK,TORCH
 
 // CHECK: #sparse_tensor.encoding
 

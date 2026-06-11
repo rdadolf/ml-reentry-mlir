@@ -1,8 +1,9 @@
-"""gnnc — compile a PyG model file to MLIR.
+"""gnnc-import — import a PyG model file and lower it to MLIR.
 
-    gnnc path/to/model.py [--dialect raw] [-o out.mlir]
+    gnnc-import path/to/model.py [--dialect raw] [-o out.mlir]
 
-Dialect targets:
+One of gnnc's model front-ends: it emits IR (down to last-level dialect), not a
+binary. Dialect targets:
   raw                : pristine FX import (torch.aten._sparse_mm, no rewrites)
   torch              : after rewrites + torch-backend legalization
   linalg-on-tensors  : + lowering to linalg (tosa / stablehlo likewise)
@@ -16,7 +17,7 @@ import argparse
 import sys
 from pathlib import Path
 
-from gnnc.tools.util import DIALECTS, stack_unimportable_message, write_output
+from gnnc.tools.util import DIALECTS, write_output
 
 
 def _emit(model_file: str, dialect: str) -> str:
@@ -29,7 +30,9 @@ def _emit(model_file: str, dialect: str) -> str:
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(prog="gnnc", description="Compile a PyG model file to MLIR.")
+    parser = argparse.ArgumentParser(
+        prog="gnnc-import", description="Import a PyG model file and lower it to MLIR."
+    )
     parser.add_argument(
         "model_file", help="Path to a model .py (Model + get_init_inputs + get_inputs)"
     )
@@ -48,7 +51,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         text = _emit(args.model_file, args.dialect)
     except ImportError as exc:
-        print(stack_unimportable_message(exc), file=sys.stderr)
+        print(f"error: {exc}", file=sys.stderr)
         return 3
 
     write_output(text, args.output)

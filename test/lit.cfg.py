@@ -1,87 +1,99 @@
 # Lit configuration for ml-reentry-mlir.
 #
-# Modeled on Lighthouse. Discovers .mlir files under test/, runs them via the
-# system's mlir-opt / mlir-runner / FileCheck (from $LLVM_BUILD/bin, exported
-# by tools/env.sh).
-#
-# When the dialect build lands (week 2), this will be supplemented by a
-# CMake-generated lit.site.cfg.py that injects build-tree paths automatically.
+# Discovers .mlir under test/ and runs them via the locally-built mlir-opt /
+# mlir-runner / FileCheck. Tool dirs resolve from GNNC_CACHE_DIR, so this works
+# with or without `source tools/env.sh`, and with or without the CMake-generated
+# lit.site.cfg.py (which, when present, injects %gnnc_plugin).
 
-# `config` and `lit_config` are runtime-injected globals from lit; ruff
-# can't see them statically.
-# ruff: noqa: F821
+# ruff: noqa: F821  (config / lit_config are lit-injected globals)
 
 import os
+import subprocess
 import sys
 
 import lit.formats
+import lit.llvm
+from lit.llvm.subst import ToolSubst
 
 config.name = "ml-reentry-mlir"
 config.test_format = lit.formats.ShTest(execute_external=True)
 config.suffixes = [".mlir"]
 config.test_source_root = os.path.dirname(__file__)
-config.test_exec_root = os.path.join(os.environ.get("GNNC_CACHE_DIR", "/tmp"), "lit-out")
 
-# ----- Tool discovery -----
-# Prefer LLVM_BUILD from the env (tools/env.sh), but fall back to deriving it
-# from GNNC_CACHE_DIR (set container-wide by the Dockerfile) so the VSCode lit
-# runner works without sourcing env.sh.
-llvm_build = os.environ.get("LLVM_BUILD")
-if not llvm_build:
-    _cache = os.environ.get("GNNC_CACHE_DIR")
-    if _cache:
-        llvm_build = os.path.join(_cache, "build", "llvm")
+cache = os.environ.get("GNNC_CACHE_DIR")
+config.test_exec_root = os.path.join(cache or "/tmp", "lit-out")
+
+# LLVM build tree: from env (tools/env.sh) or derived from the cache anchor.
+llvm_build = os.environ.get("LLVM_BUILD") or (
+    os.path.join(cache, "build", "llvm") if cache else None
+)
 if not llvm_build or not os.path.isdir(os.path.join(llvm_build, "bin")):
     lit_config.fatal(
         "Could not locate the LLVM build. Set LLVM_BUILD (source tools/env.sh) "
         "or GNNC_CACHE_DIR so it resolves to <cache>/build/llvm."
     )
-
 bin_dir = os.path.join(llvm_build, "bin")
 lib_dir = os.path.join(llvm_build, "lib")
 
+# In the no-CMake path these come from us, not a generated site config.
+config.llvm_tools_dir = bin_dir
+config.llvm_shlib_dir = lib_dir
+config.llvm_shlib_ext = ".so"
 
-def _bin(name):
-    p = os.path.join(bin_dir, name)
-    if not os.path.exists(p):
-        lit_config.fatal(f"missing tool: {p} — did tools/build-llvm.sh complete?")
-    return p
+lit.llvm.initialize(lit_config, config)
+# We call initialize() inline (no site config runs first), so rebind the global.
+llvm_config = lit.llvm.llvm_config
 
 
-config.substitutions.extend(
-    [
-        ("%mlir-opt", _bin("mlir-opt")),
-        ("%mlir-runner", _bin("mlir-runner")),
-        ("%mlir-translate", _bin("mlir-translate")),
-        ("%FileCheck", os.environ.get("FILECHECK") or _bin("FileCheck")),
-        # gnnc CLI (model file -> MLIR). Uses the lit-runner's interpreter so the
-        # torch-mlir / Lighthouse PYTHONPATH from tools/env.sh is in scope.
-        ("%gnnc", f"{sys.executable} -m gnnc"),
-        # Runtime library paths for mlir-runner integration tests.
-        ("%mlir_runner_utils", os.path.join(lib_dir, "libmlir_runner_utils.so")),
-        ("%mlir_c_runner_utils", os.path.join(lib_dir, "libmlir_c_runner_utils.so")),
-        ("%mlir_cuda_runtime", os.path.join(lib_dir, "libmlir_cuda_runtime.so")),
-    ]
+def _lib(name):
+    return ToolSubst(f"%{name}", os.path.join(lib_dir, f"lib{name}.so"))
+
+
+# Build-tree path from the generated site config, else derived from the cache.
+gnnc_plugin = getattr(config, "gnnc_plugin", "") or (
+    os.path.join(cache, "build", "gnnc", "lib", "GNNCPlugin.so") if cache else ""
 )
 
-config.environment["PATH"] = bin_dir + os.pathsep + os.environ.get("PATH", "")
-
-# Reconstruct the PYTHONPATH tools/env.sh exports (torch-mlir + upstream MLIR
-# bindings + Lighthouse), derived from GNNC_CACHE_DIR, so %gnnc subprocesses can
-# import the stack without env.sh having been sourced (e.g. the VSCode runner).
-_repo_root = os.path.dirname(config.test_source_root)
-_cache = os.environ.get("GNNC_CACHE_DIR")
-_py_paths = []
-if _cache:
-    _py_paths += [
-        os.path.join(_cache, "build", "torch-mlir", "python_packages", "torch_mlir"),
-        os.path.join(_cache, "build", "llvm", "tools", "mlir", "python_packages", "mlir_core"),
-    ]
-_py_paths.append(os.path.join(_repo_root, "third_party", "lighthouse"))
-_existing_pp = os.environ.get("PYTHONPATH", "")
-config.environment["PYTHONPATH"] = os.pathsep.join(
-    [p for p in _py_paths if os.path.isdir(p)] + ([_existing_pp] if _existing_pp else [])
+# Bare names = tools (found in bin_dir); %-prefixed = value substitutions.
+tools = [
+    "mlir-opt",
+    "mlir-runner",
+    "mlir-translate",
+    "FileCheck",
+    # gnnc-import == `python -m gnnc` on the venv interpreter (stack on site-packages).
+    ToolSubst("gnnc-import", f"{sys.executable} -m gnnc", unresolved="ignore"),
+    ToolSubst("%gnnc_plugin", gnnc_plugin, unresolved="ignore"),
+    _lib("mlir_runner_utils"),
+    _lib("mlir_c_runner_utils"),
+    _lib("mlir_cuda_runtime"),
+]
+llvm_config.with_environment("PATH", bin_dir, append_path=True)
+llvm_config.with_system_environment(
+    ["GNNC_CACHE_DIR", "GNNC_DATA_DIR", "LD_LIBRARY_PATH", "VIRTUAL_ENV"]
 )
-for _var in ("GNNC_CACHE_DIR", "GNNC_DATA_DIR", "LD_LIBRARY_PATH", "VIRTUAL_ENV"):
-    if _var in os.environ:
-        config.environment[_var] = os.environ[_var]
+llvm_config.add_tool_substitutions(tools, [bin_dir])
+
+################################################################################
+
+# Rebuild the gnnc C++ plugin before any lit test. Every runner (VSCode lit
+# ext, `lit test/`, pre-commit, `ninja check-gnnc`) loads this config, so the
+# rebuild covers them all. Only when already configured (build.ninja present) —
+# never cold-configure from a test run; a warm build-gnnc.sh is ~12ms.
+#
+# This is non-standard, but it ends up making life easier for some development
+# tools. It's also easy to get rid of if need be.
+gnnc_build = os.path.join(cache, "build", "gnnc") if cache else None
+if gnnc_build and os.path.isfile(os.path.join(gnnc_build, "build.ninja")):
+    repo_root = os.path.dirname(config.test_source_root)
+    _rc = subprocess.run(
+        ["bash", os.path.join(repo_root, "tools", "build-gnnc.sh")],
+        capture_output=True,
+        text=True,
+    )
+    if _rc.returncode != 0:
+        lit_config.warning(f"gnnc C++ rebuild failed; plugin tests may be stale:\n{_rc.stderr}")
+
+# Plugin tests gate on `REQUIRES: gnnc-plugin`, so they skip when the C++ build
+# hasn't run rather than erroring on the unresolved %gnnc_plugin.
+if gnnc_plugin and os.path.exists(gnnc_plugin):
+    config.available_features.add("gnnc-plugin")

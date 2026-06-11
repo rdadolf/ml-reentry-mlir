@@ -5,9 +5,9 @@ order, write MLIR (stdout or `-o`). With no transform flags it echoes (parse +
 print), like `mlir-opt`.
 
     gnnc-opt input.mlir --transform -o out.mlir
-    gnnc model.py --dialect raw | gnnc-opt --transform --lower linalg-on-tensors
+    gnnc-import model.py --dialect raw | gnnc-opt --transform --lower linalg-on-tensors
 
-Input must be torch-dialect MLIR (e.g. the output of `gnnc <model> --dialect raw`).
+Input must be torch-dialect MLIR (e.g. the output of `gnnc-import <model> --dialect raw`).
 `--lower` on raw input needs `--transform` first (otherwise torch.aten._sparse_mm
 fails to legalize).
 """
@@ -20,7 +20,6 @@ import sys
 from gnnc.tools.util import (
     LOWER_DIALECTS,
     read_input,
-    stack_unimportable_message,
     write_output,
 )
 
@@ -47,7 +46,7 @@ def main(argv: list[str] | None = None) -> int:
         from torch_mlir import ir
         from torch_mlir.dialects import torch as torch_d
     except ImportError as exc:
-        print(stack_unimportable_message(exc), file=sys.stderr)
+        print(f"error: {exc}", file=sys.stderr)
         return 3
 
     ctx = ir.Context()

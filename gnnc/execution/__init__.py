@@ -30,26 +30,38 @@ def run_jit(lowered: _ir.Module, results: list, inputs: tuple) -> list[torch.Ten
     sparse-CSR layouts are decomposed here into the component dense tensors
     that `sparse-assembler` exposes at the function boundary.
     """
-    import os
-
     from lighthouse.ingress.torch.compile import JITFunction
-    from lighthouse.utils.mlir import get_mlir_library_path
     from mlir import ir
 
     from gnnc.compile import _get_ir_context
+    from gnnc.paths import CACHE_DIR
 
-    # libmlir_cuda_runtime.so is linked only when the lowered module
-    # actually has GPU content. Linking it unconditionally — even when
-    # the kernel never calls into it — corrupts later JIT engines in the
-    # same process: subsequent gpu-codegen invocations segfault in
-    # cuStreamSynchronize/Destroy, likely because the runtime's CUDA
-    # context init/teardown gets re-entered across ExecutionEngine
-    # lifetimes. Sniffing the module text keeps cpu-only runs out of the
-    # cuda runtime entirely.
+    # --- DIRTY: force lighthouse's runtime-lib lookup to the real location ------
+    # lighthouse.utils.mlir.get_mlir_library_path() auto-detects "wheel vs build
+    # tree" by sniffing whether the mlir package path contains "python_packages".
+    # Our venv site-packages symlink (tools/link-stack.sh) makes the source build
+    # look wheel-installed, so it wrongly searches the package's _mlir_libs/ for
+    # the runtime libs — which a build tree keeps in build/llvm/lib instead. There
+    # is no clean seam to override it (Runner takes no lib_dir; shared_libs is
+    # consumed too late), so we replace the function in BOTH modules that bound it
+    # (runner.py did `from ... import get_mlir_library_path`, so it holds its own
+    # reference). See internal-docs/{build-env.md, upstream-wishlist.md}.
+    libdir = CACHE_DIR / "build" / "llvm" / "lib"
+    import lighthouse.execution.runner as _lh_runner
+    import lighthouse.utils.mlir as _lh_mlir
+
+    _lh_mlir.get_mlir_library_path = _lh_runner.get_mlir_library_path = lambda: libdir
+
+    # libmlir_cuda_runtime.so is linked only when the lowered module actually has
+    # GPU content. Linking it unconditionally — even when the kernel never calls
+    # into it — corrupts later JIT engines in the same process: subsequent
+    # gpu-codegen invocations segfault in cuStreamSynchronize/Destroy, likely
+    # because the runtime's CUDA context init/teardown gets re-entered across
+    # ExecutionEngine lifetimes. Sniffing the module text keeps cpu-only runs out
+    # of the cuda runtime entirely.
     shared_libs = []
     if "gpu.binary" in str(lowered) or "mgpu" in str(lowered):
-        libdir = str(get_mlir_library_path())
-        shared_libs.append(os.path.join(libdir, "libmlir_cuda_runtime.so"))
+        shared_libs.append(str(libdir / "libmlir_cuda_runtime.so"))
 
     ctx = _get_ir_context()
     with ctx, ir.Location.unknown():

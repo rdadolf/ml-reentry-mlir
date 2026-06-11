@@ -24,7 +24,6 @@ import numpy as np
 from gnnc import __version__, paths, recipes
 from gnnc.examples import MODELS_DIR, available
 from gnnc.ingress import get_model_and_data
-from gnnc.tools.util import stack_unimportable_message
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -68,7 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         lowered, results = compile_through_recipe(model, forward_inputs, recipe=args.recipe)
         outs = run_jit(lowered, results, forward_inputs)
     except ImportError as exc:
-        print(stack_unimportable_message(exc), file=sys.stderr)
+        print(f"error: {exc}", file=sys.stderr)
         return 3
     except (ValueError, NotImplementedError) as exc:
         print(f"error: {exc}", file=sys.stderr)

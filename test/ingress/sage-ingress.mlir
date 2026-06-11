@@ -4,8 +4,8 @@
 // the rewrite produces that shape, and that an empty-row guard (clamp_min) is
 // in place so the divide matches PyTorch's `nnz=0 -> 0` semantics.
 //
-// RUN: %gnnc %S/../../gnnc/examples/models/sage.py --dialect raw | %FileCheck %s --check-prefix=CHECK,RAW
-// RUN: %gnnc %S/../../gnnc/examples/models/sage.py --dialect torch | %FileCheck %s --check-prefix=CHECK,TORCH
+// RUN: gnnc-import %S/../../gnnc/examples/models/sage.py --dialect raw | FileCheck %s --check-prefix=CHECK,RAW
+// RUN: gnnc-import %S/../../gnnc/examples/models/sage.py --dialect torch | FileCheck %s --check-prefix=CHECK,TORCH
 
 // CHECK: #sparse_tensor.encoding
 
