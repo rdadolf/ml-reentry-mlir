@@ -166,8 +166,10 @@ opaque second copy); **`venv/bin` tool symlinks** (a misuse of the venv).
   touch.
 
 ### Lifecycle
-- **Cold clone:** `submodule update --init --recursive` → `uv sync` (venv) →
-  `build-llvm.sh` → `build-torch-mlir.sh` → `build-gnnc.sh` → `link-stack.sh`.
+- **Cold clone:** `submodule update --init` (non-recursive — pyg subs are pulled
+  by `build-pyg-libs.sh`; torch-mlir's `externals/*` are unused) → `uv sync`
+  (venv) → `build-llvm.sh` → `build-torch-mlir.sh` → `build-gnnc.sh` →
+  `link-stack.sh`.
 - **New worktree** (shared cache + venv): the venv's symlinks already exist and
   are correct (cache shared; `lighthouse` is `/x/workspace`-relative). **No
   `link-stack` re-run** — just `submodule update --init` at the cache's SHA

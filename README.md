@@ -22,7 +22,7 @@ First time after clone (the multi-GB builds; the devcontainer runs
 `uv sync --extra dev` automatically):
 
 ```bash
-git submodule update --init --recursive
+git submodule update --init                   # NOT --recursive; see "Worktrees"
 uv sync --extra dev
 bash tools/build-llvm.sh                      # ~30 min cold; ccache after
 bash tools/build-torch-mlir.sh
@@ -36,6 +36,15 @@ The Python stack (mlir / torch-mlir / lighthouse) is linked into the venv by
 no `PYTHONPATH`. Re-run it only after the venv is recreated. `source tools/env.sh`
 is optional: it just puts the LLVM tools (`mlir-opt`, `FileCheck`, …) on your PATH
 for interactive use.
+
+## Worktrees
+
+`git submodule update --init` clones `third_party/llvm-project` per worktree. It
+doesn't really break anything, but to share it instead of re-downloading, run:
+
+```
+git submodule update --init --reference <path-to-existing-gnnc-repo>/third_party/llvm-project`
+```
 
 Run / test:
 
