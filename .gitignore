@@ -34,8 +34,8 @@ Thumbs.db
 /cache/
 /data/
 
-# VSCode Lit extension binary (temporary)
-.vscode/lit-test-extension.vsix
+# Worktree-propagated blobs (e.g., our lit VSIX)
+/.cached_blobs/
 
 # I keep working notes locally, but they shouldn't be committed
 tmp-docs/

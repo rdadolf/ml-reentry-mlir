@@ -72,7 +72,7 @@
         "anthropic.claude-code",
         // Personal lit test extension, available at https://github.com/rdadolf/lit-test-extension
         // Temporarily installed from a local .vsix until it's published.
-        "/x/workspace/.vscode/lit-test-extension.vsix"
+        "/x/workspace/.cached_blobs/lit-test-extension.vsix"
       ],
       "settings": {
         "python.defaultInterpreterPath": "/x/cache/venv/bin/python",
