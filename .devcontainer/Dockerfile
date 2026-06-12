@@ -12,6 +12,18 @@ ARG USERNAME=vscode
 ARG USER_UID=1000
 ARG USER_GID=1000
 
+# ---------- Git PPA ----------
+# Ubuntu 24.04 ships git 2.43, but the worktree flow needs a newer release.
+# Pull git from the upstream git-core PPA (latest stable, 2.54+).
+# add-apt-repository comes from software-properties-common, absent on the base
+# CUDA image, so install it (and gnupg, needed to add the PPA key) first.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    software-properties-common \
+    gnupg \
+    ca-certificates \
+    && add-apt-repository -y ppa:git-core/ppa \
+    && rm -rf /var/lib/apt/lists/*
+
 # ---------- System packages ----------
 RUN apt-get update && apt-get install -y --no-install-recommends \
     # Build toolchain
@@ -21,6 +33,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ninja-build \
     ccache \
     pkg-config \
+    # git from the git-core PPA added above (not the noble 2.43)
     git \
     # Python (3.12 on noble)
     python3 \
