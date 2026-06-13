@@ -22,7 +22,7 @@ First time after clone (the multi-GB builds; the devcontainer runs
 `uv sync --extra dev` automatically):
 
 ```bash
-git submodule update --init                   # NOT --recursive; see "Worktrees"
+git submodule update --init                   # NOT --recursive; we don't use them
 uv sync --extra dev
 bash tools/build-llvm.sh                      # ~30 min cold; ccache after
 bash tools/build-torch-mlir.sh
@@ -39,12 +39,18 @@ for interactive use.
 
 ## Worktrees
 
-`git submodule update --init` clones `third_party/llvm-project` per worktree. It
-doesn't really break anything, but to share it instead of re-downloading, run:
+A plain `git submodule update --init` re-clones `third_party/llvm-project`
+(several GB) into every worktree. To share one local copy instead, point the
+reference at an existing checkout's llvm-project, scoped to that one submodule so
+the rest still clone normally:
 
+```bash
+git submodule update --init --reference <other-checkout>/third_party/llvm-project third_party/llvm-project
+git submodule update --init
 ```
-git submodule update --init --reference <path-to-existing-gnnc-repo>/third_party/llvm-project`
-```
+
+If you don't care or it's not working, omitting the `--reference` link is fine,
+it'll just take longer to initialize LLVM.
 
 Run / test:
 
