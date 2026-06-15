@@ -1,4 +1,4 @@
-"""execution — JIT execution of a recipe-lowered MLIR module.
+"""execution — JIT execution of a fully-lowered MLIR module.
 
 `run_jit(lowered, results, inputs)` is gnnc's JIT entry point: it builds a
 Lighthouse `JITFunction` over the lowered module, decomposes sparse tensor
@@ -25,7 +25,7 @@ if TYPE_CHECKING:
 def run_jit(lowered: _ir.Module, results: list, inputs: tuple) -> list[torch.Tensor]:
     """JIT-compile and invoke `lowered`, returning the entry function's outputs.
 
-    `lowered` and `results` are what `gnnc.compile.compile_through_recipe`
+    `lowered` and `results` are what `gnnc.compile.compile_executable`
     returns. `inputs` is the same `forward_inputs` tuple passed to compile;
     sparse-CSR layouts are decomposed here into the component dense tensors
     that `sparse-assembler` exposes at the function boundary.

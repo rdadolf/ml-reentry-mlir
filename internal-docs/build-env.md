@@ -203,7 +203,7 @@ Canaries (⚑) resolve the stack. Context: **devcontainer**.
 |---|---|---|
 | ⚑ Stack imports | `python -c "import mlir, torch_mlir, lighthouse; print('ok')"` | `ok` |
 | SHA guard | `bash tools/build-gnnc.sh` | proceeds (3 SHAs equal) |
-| ⚑ CLI gnnc-import | `gnnc-import gnnc/examples/models/gcn.py --dialect raw` | emits MLIR |
+| ⚑ CLI gnnc-import | `gnnc-import gnnc/examples/models/gcn.py --stop-after import` | emits MLIR |
 | ⚑ CLI gnnc-opt | `gnnc-opt --help` | runs |
 | ⚑ pytest | `pytest -q` | passes (incl. JIT integration) |
 | ⚑ lit | `lit test/` | all pass (incl. `ingress/*` and the plugin tests) |

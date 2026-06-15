@@ -1,21 +1,17 @@
-"""Pipeline composition for sparse-tensor lowering recipes.
+"""Pipeline composition for sparse-tensor lowering.
 
 Decomposed from `buildSparsifier`. Inner `sparsification-and-bufferization`
 stays monolithic per the Q1 design decision; the per-pass rationale and
 side-by-side with upstream/MPACT lives in
 [internal-docs/sparse-pipeline-comparison.md](../../internal-docs/sparse-pipeline-comparison.md).
+
+The schedule is grouped into named phases (`gnnc.pipeline.phase.PhasePipeline`)
+so a caller can halt at a boundary (`--stop-after sparsify`) or print the IR there.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
-from lighthouse.pipeline.descriptor import Descriptor
-from lighthouse.pipeline.driver import PipelineDriver
-
-if TYPE_CHECKING:
-    from mlir import ir
-
+from gnnc.pipeline.phase import PhasePipeline
 
 # Knobs.
 _VL = 0  # sparse vectorization lane count; 16=AVX-512, 8=AVX2, 4=SSE/NEON
@@ -24,30 +20,31 @@ _SPARSE_ITERATOR = False  # use experimental `sparse_tensor.iterate` emit strate
 
 def build_pipeline(
     *,
-    ctx: ir.Context,
     target: str,
-    has_sparse: bool = True,
     gpu_chip: str = "sm_89",
     gpu_features: str = "+ptx80",
     gpu_num_threads: int = 128,
-) -> PipelineDriver:
+) -> PhasePipeline:
     if target not in ("cpu", "gpu"):
         raise NotImplementedError(f"target {target!r} not supported")
 
-    driver = PipelineDriver(ctx)
-    # Mark @main so the JIT engine can call it via the C ABI.
-    driver.add_pass(Descriptor("func.func(llvm-request-c-wrappers)"))
+    pipeline = PhasePipeline()
 
-    if has_sparse:
+    with pipeline.add_phase("func-prep") as phase:
+        # Mark @main so the JIT engine can call it via the C ABI.
+        phase.add_pass("func.func(llvm-request-c-wrappers)")
+
+    with pipeline.add_phase("sparse-prep") as phase:
         # Decompose sparse fn args into the dense components the runtime expects.
-        driver.add_pass(Descriptor("sparse-assembler{direct-out}"))
-        driver.add_pass(Descriptor("func.func(linalg-generalize-named-ops)"))
+        phase.add_pass("sparse-assembler{direct-out}")
+        phase.add_pass("func.func(linalg-generalize-named-ops)")
         # Hoisted from inner pass so FuseTensorCast folds dense->sparse casts
         # into producer linalg.generic ops *before* elementwise fusion locks
         # them in. The hoist is the difference between SAGE compiling and not.
-        driver.add_pass(Descriptor("pre-sparsification-rewrite"))
-        driver.add_pass(Descriptor("func.func(linalg-fuse-elementwise-ops)"))
+        phase.add_pass("pre-sparsification-rewrite")
+        phase.add_pass("func.func(linalg-fuse-elementwise-ops)")
 
+    with pipeline.add_phase("sparsify") as phase:
         # The inner monolith. `enable-runtime-library` is not a textual option
         # on this pass (only on `--sparsifier`); the no-options default is
         # `false`, which is what we want — the codegen path is canonical and
@@ -62,63 +59,56 @@ def build_pipeline(
         sb = "sparsification-and-bufferization"
         if sb_opts:
             sb += "{" + " ".join(sb_opts) + "}"
-        driver.add_pass(Descriptor(sb))
+        phase.add_pass(sb)
 
-        driver.add_pass(Descriptor("sparse-storage-specifier-to-llvm"))
-        driver.add_pass(Descriptor("func.func(canonicalize)"))
+    with pipeline.add_phase("sparse-to-llvm") as phase:
+        phase.add_pass("sparse-storage-specifier-to-llvm")
+        phase.add_pass("func.func(canonicalize)")
 
-        if target == "gpu":
+    if target == "gpu":
+        with pipeline.add_phase("gpu-codegen") as phase:
             # Pulls sparse kernels into gpu.module bodies, emits launch_func at host.
-            driver.add_pass(
-                Descriptor(
-                    f"sparse-gpu-codegen{{num-threads={gpu_num_threads} enable-runtime-library=false}}"
-                )
+            phase.add_pass(
+                f"sparse-gpu-codegen{{num-threads={gpu_num_threads} enable-runtime-library=false}}"
             )
             # NVVM's lowering doesn't tolerate debug-info ops in kernel bodies.
-            driver.add_pass(Descriptor("gpu.module(strip-debuginfo)"))
-            driver.add_pass(Descriptor("gpu.module(convert-scf-to-cf)"))
-            driver.add_pass(Descriptor("gpu.module(convert-gpu-to-nvvm)"))
+            phase.add_pass("gpu.module(strip-debuginfo)")
+            phase.add_pass("gpu.module(convert-scf-to-cf)")
+            phase.add_pass("gpu.module(convert-gpu-to-nvvm)")
 
-        driver.add_pass(Descriptor("func.func(convert-linalg-to-loops)"))
-        driver.add_pass(Descriptor("func.func(convert-vector-to-scf)"))
+    with pipeline.add_phase("bufferized-lower") as phase:
+        phase.add_pass("func.func(convert-linalg-to-loops)")
+        phase.add_pass("func.func(convert-vector-to-scf)")
         # LLVM has no realloc primitive; expand to alloc + copy + dealloc here.
-        driver.add_pass(Descriptor("func.func(expand-realloc)"))
-        driver.add_pass(Descriptor("func.func(convert-scf-to-cf)"))
-        driver.add_pass(Descriptor("expand-strided-metadata"))
-        driver.add_pass(Descriptor("lower-affine"))
-        driver.add_pass(Descriptor("convert-vector-to-llvm"))
-        driver.add_pass(Descriptor("func.func(convert-complex-to-standard)"))
-        driver.add_pass(Descriptor("func.func(arith-expand)"))
-        driver.add_pass(Descriptor("func.func(convert-math-to-llvm)"))
+        phase.add_pass("func.func(expand-realloc)")
+        phase.add_pass("func.func(convert-scf-to-cf)")
+        phase.add_pass("expand-strided-metadata")
+        phase.add_pass("lower-affine")
+        phase.add_pass("convert-vector-to-llvm")
+        phase.add_pass("func.func(convert-complex-to-standard)")
+        phase.add_pass("func.func(arith-expand)")
+        phase.add_pass("func.func(convert-math-to-llvm)")
         # tanh/erf/cexp/clog and friends have no LLVM intrinsic; route to libm.
-        driver.add_pass(Descriptor("convert-math-to-libm"))
-        driver.add_pass(Descriptor("convert-complex-to-libm"))
+        phase.add_pass("convert-math-to-libm")
+        phase.add_pass("convert-complex-to-libm")
         # Second pass cleans up vector ops re-introduced by the math/complex
         # lowerings above — the first convert-vector-to-llvm didn't see them.
-        driver.add_pass(Descriptor("convert-vector-to-llvm"))
+        phase.add_pass("convert-vector-to-llvm")
 
-        if target == "gpu":
+    if target == "gpu":
+        with pipeline.add_phase("gpu-finalize") as phase:
             # NVVM consumes triple/chip/features as attrs on gpu.module.
-            driver.add_pass(
-                Descriptor(
-                    f"nvvm-attach-target{{triple=nvptx64-nvidia-cuda chip={gpu_chip} features={gpu_features}}}"
-                )
+            phase.add_pass(
+                f"nvvm-attach-target{{triple=nvptx64-nvidia-cuda chip={gpu_chip} features={gpu_features}}}"
             )
             # Host-side gpu.* -> mgpuStream*/mgpuLaunchKernel runtime calls.
-            driver.add_pass(Descriptor("gpu-to-llvm"))
+            phase.add_pass("gpu-to-llvm")
             # Serialize device-side gpu.module(s) to a fatbinary blob.
-            driver.add_pass(Descriptor("gpu-module-to-binary{format=fatbin}"))
+            phase.add_pass("gpu-module-to-binary{format=fatbin}")
 
+    with pipeline.add_phase("llvm-lower") as phase:
         # Umbrella over the remaining func/cf/arith/index/complex -> LLVM lowerings.
-        driver.add_pass(Descriptor("convert-to-llvm"))
-        driver.add_pass(Descriptor("reconcile-unrealized-casts"))
+        phase.add_pass("convert-to-llvm")
+        phase.add_pass("reconcile-unrealized-casts")
 
-    else:
-        # No sparse content: skip the sparsifier; lean on Lighthouse's bundled chain.
-        driver.add_descriptor(Descriptor("bufferization.yaml"))
-        driver.add_descriptor(Descriptor("bufferization_cleanup.yaml"))
-        driver.add_pass(Descriptor("convert-linalg-to-loops"))
-        driver.add_descriptor(Descriptor("llvm_lowering.yaml"))
-        driver.add_descriptor(Descriptor("cleanup.yaml"))
-
-    return driver
+    return pipeline

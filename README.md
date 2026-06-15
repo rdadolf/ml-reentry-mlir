@@ -8,13 +8,8 @@ One of the interesting parts of GNN compilers to me has always been aggressive k
 
 In any case, that's what this project is. I took a stab at this problem back in 2020, but a lot of the pieces just weren't ready. Aart and the folks behind the `sparse_tensor` dialect deserve a lot of the credit for the fact that is no longer true, but Torch itself has made a lot of strides in tracing, compilation, and integration, which have helped tremendously. I'm also looking forward to taking advantage of MLIR's Lighthouse effort, which is still young but shaping up well.
 
-## Architecture
-
-**PyTorch Geometric → torch-mlir → MLIR (linalg → sparse-tensor) → GPU/CPU.**
-
-Pipeline: a PyG model is FX-imported to MLIR, lowered by a pass recipe,
-JIT-executed, and checked against PyG running normally.
-
+Basic Architecture:
+**PyG → torch-mlir → MLIR (linalg → sparse-tensor) → GPU/CPU.**
 
 ## Common commands
 
@@ -55,7 +50,7 @@ it'll just take longer to initialize LLVM.
 Run / test:
 
 ```bash
-gnnc-bench --model gcn --dataset cora --recipe cpu/sparse-basic   # compile + run + compare
+gnnc-bench --model gcn --dataset cora            # compile + run + compare
 lit test/                                      # MLIR pipeline + pass lit tests
 pre-commit run --all-files                     # ruff + hygiene + lit + pytest (in-container)
 ```

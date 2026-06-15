@@ -19,13 +19,17 @@ if TYPE_CHECKING:
     from torch_mlir.ir import Module
 
 
-__all__ = ["run"]
+__all__ = ["rewrite_names", "run"]
 
 
 _conversion_pipeline = [
     despecialize_sparse_mm,
     despecialize_sparse_mm_reduce,
 ]
+
+# The rewrite names, for the `--trace` listing. Each rewriter lives in a module
+# named for the rewrite, so the module's last component is the name.
+rewrite_names = tuple(fn.__module__.rsplit(".", 1)[-1] for _root, fn in _conversion_pipeline)
 
 
 def run(module: Module) -> Module:

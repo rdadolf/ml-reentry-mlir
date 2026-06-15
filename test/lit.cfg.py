@@ -62,6 +62,7 @@ tools = [
     "FileCheck",
     # gnnc-import == `python -m gnnc` on the venv interpreter (stack on site-packages).
     ToolSubst("gnnc-import", f"{sys.executable} -m gnnc", unresolved="ignore"),
+    ToolSubst("gnnc-opt", f"{sys.executable} -m gnnc.tools.gnnc_opt", unresolved="ignore"),
     ToolSubst("%gnnc_plugin", gnnc_plugin, unresolved="ignore"),
     _lib("mlir_runner_utils"),
     _lib("mlir_c_runner_utils"),

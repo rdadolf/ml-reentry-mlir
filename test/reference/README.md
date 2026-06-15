@@ -6,9 +6,10 @@ after an LLVM / torch-mlir / PyG bump, regenerate and diff to detect emission
 drift (same role as the `experiments/fx-sparsity` and `experiments/gatconv`
 captures).
 
-Regenerate any file with:
+Regenerate any file with (phase → dialect: `import` → raw, `torch-legalize` →
+torch, `linalg-lower` → linalg-on-tensors):
 
-    gnnc gnnc/examples/models/<model>.py --dialect <dialect> > test/reference/<model>.<dialect>.mlir
+    gnnc-import gnnc/examples/models/<model>.py --stop-after <phase> > test/reference/<model>.<dialect>.mlir
 
 ## Coverage
 
