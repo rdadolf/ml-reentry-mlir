@@ -87,7 +87,17 @@ fi
 # amount of time.*
 ninja -C "$BUILD_DIR"
 
+# Symlink the built pass module next to the gnnc sources so
+# `import gnnc._gnncRegisterPasses` resolves.
+ext=$(echo "$BUILD_DIR/lib/_gnncRegisterPasses."*.so)
+if [[ ! -f "$ext" ]]; then
+    echo "error: build succeeded but $BUILD_DIR/lib/_gnncRegisterPasses.*.so is missing" >&2
+    exit 1
+fi
+ln -sfn "$ext" "$REPO/gnnc/$(basename "$ext")"
+
 echo
 echo "gnnc C++ build complete: $BUILD_DIR"
 echo "  GNNCPlugin.so:  $BUILD_DIR/lib/GNNCPlugin.so"
+echo "  pass module:    $REPO/gnnc/$(basename "$ext")"
 echo "  lit tests:      ninja -C $BUILD_DIR check-gnnc"

@@ -8,10 +8,9 @@
 // pass stage already roots at `builtin.module`, so its `--pass` value omits the
 // outer `builtin.module(...)` the plugin pipeline spells explicitly.
 //
-// REQUIRES: gnnc-plugin
 // RUN: mlir-opt %s --load-pass-plugin=%gnnc_plugin \
 // RUN:   --pass-pipeline="builtin.module(func.func(gnnc-switch-bar-foo))" | FileCheck %s
-// RUN: %if gnnc-cpp-passes %{ gnnc-opt %s --pass 'func.func(gnnc-switch-bar-foo)' | FileCheck %s %}
+// RUN: gnnc-opt %s --pass 'func.func(gnnc-switch-bar-foo)' | FileCheck %s
 
 // CHECK-LABEL: func.func @foo
 // CHECK-NOT:   func.func @bar

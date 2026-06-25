@@ -1,13 +1,10 @@
 """Check that gnnc's C++ passes behave the way MLIR ones do."""
 
+# This is a test itself.
+# Importing registers gnnc's required C++ passes. If they aren't built, the
+# import fails and collection stops here.
+import gnnc._gnncRegisterPasses  # noqa: F401  (registration runs on import)
 import pytest
-
-# Skip cleanly if the C++ pass module hasn't been built and linked (mirrors the
-# lit `REQUIRES: gnnc-cpp-passes` gate).
-pytest.importorskip(
-    "gnnc._gnncRegisterPasses",
-    reason="gnnc C++ passes not built; run build-gnnc.sh + link-stack.sh",
-)
 
 GNNC_PASS = "func.func(gnnc-switch-bar-foo)"
 UPSTREAM_PASS = "func.func(canonicalize)"

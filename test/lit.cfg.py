@@ -93,19 +93,18 @@ if gnnc_build and os.path.isfile(os.path.join(gnnc_build, "build.ninja")):
         text=True,
     )
     if _rc.returncode != 0:
-        lit_config.warning(f"gnnc C++ rebuild failed; plugin tests may be stale:\n{_rc.stderr}")
+        lit_config.fatal(f"gnnc C++ rebuild failed:\n{_rc.stderr}")
 
-# Plugin tests gate on `REQUIRES: gnnc-plugin`, so they skip when the C++ build
-# hasn't run rather than erroring on the unresolved %gnnc_plugin.
-if gnnc_plugin and os.path.exists(gnnc_plugin):
-    config.available_features.add("gnnc-plugin")
+# Abort if the C++ pass plugin and module are missing or failed to build.
+if not (gnnc_plugin and os.path.exists(gnnc_plugin)):
+    lit_config.fatal(f"gnnc plugin missing: {gnnc_plugin or '<unset>'} — run tools/build-gnnc.sh")
+config.available_features.add("gnnc-plugin")
 
-# gnnc's C++ passes are available to gnnc-opt once build-gnnc.sh built the
-# _gnncRegisterPasses module and link-stack.sh placed it next to the gnnc
-# sources. Tests that drive those passes through gnnc-opt gate on
-# `REQUIRES: gnnc-cpp-passes`.
 repo_root = os.path.dirname(config.test_source_root)
 ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
 gnnc_passes_module = os.path.join(repo_root, "gnnc", f"_gnncRegisterPasses{ext_suffix}")
-if os.path.exists(gnnc_passes_module):
-    config.available_features.add("gnnc-cpp-passes")
+if not os.path.exists(gnnc_passes_module):
+    lit_config.fatal(
+        f"gnnc C++ pass module missing: {gnnc_passes_module} — run tools/build-gnnc.sh"
+    )
+config.available_features.add("gnnc-cpp-passes")
