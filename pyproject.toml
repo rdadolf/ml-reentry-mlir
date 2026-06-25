@@ -30,6 +30,9 @@ authors = [{ name = "Bob Adolf", email = "rdadolf@gmail.com" }]
 # wheel. torch-scatter / torch-sparse / pyg-lib are needed only for PyG
 # baseline comparison and require matching wheels from
 # https://data.pyg.org/whl/ (post-install step, documented in README).
+#
+# Normally build/dev deps would be separated, but honestly it's just easier
+# to lump them all together since this is a research project, not a product.
 dependencies = [
     "numpy>=1.26,<3",
     "lit>=18",
@@ -40,25 +43,17 @@ dependencies = [
     "triton",
     "torch-geometric>=2.5",
     "ogb>=1.3",
-]
-
-[project.optional-dependencies]
-dev = [
+    # Build-time deps for the out-of-tree LLVM/MLIR and torch-mlir builds. MLIR's
+    # CMake scripts inspect the active Python interpreter and require nanobind to
+    # be importable. Pinned versions track
+    # third_party/llvm-project/mlir/python/requirements.txt.
+    "nanobind>=2.9,<3.0",
+    "typing_extensions>=4.12.2",
+    # Dev tooling: tests, lint/format, hooks, REPL.
     "pytest>=8",
     "ruff>=0.6",
     "pre-commit>=4",
     "ipython>=8",
-]
-
-# Build-time deps for the out-of-tree LLVM/MLIR and torch-mlir builds. MLIR's
-# CMake scripts inspect the active Python interpreter and require these to be
-# importable. Pinned versions track
-# third_party/llvm-project/mlir/python/requirements.txt. (PyYAML and
-# ml_dtypes are also build-time MLIR requirements but are now core deps —
-# see the [project].dependencies note above — so they're not repeated here.)
-build = [
-    "nanobind>=2.9,<3.0",
-    "typing_extensions>=4.12.2",
 ]
 
 [project.scripts]

@@ -59,7 +59,7 @@
 
   // Sync Python deps into /x/cache/venv. Incremental across image rebuilds
   // because the venv lives on the persistent cache mount.
-  "postCreateCommand": "uv sync --extra dev",
+  "postCreateCommand": "uv sync",
 
   // Wire up Claude Code config and project state inside the container.
   "postStartCommand": ".devcontainer/setup-claude.sh",

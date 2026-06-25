@@ -4,7 +4,7 @@
 Skips OGB-products (1.5 GB; stretch goal, downloaded explicitly later).
 Idempotent: existing dataset directories are reused.
 
-Run after `uv sync --extra dev`.
+Run after `uv sync`.
 """
 
 from __future__ import annotations

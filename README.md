@@ -14,11 +14,11 @@ Basic Architecture:
 ## Common commands
 
 First time after clone (the multi-GB builds; the devcontainer runs
-`uv sync --extra dev` automatically):
+`uv sync` automatically):
 
 ```bash
 git submodule update --init                   # NOT --recursive; we don't use them
-uv sync --extra dev
+uv sync
 bash tools/build-llvm.sh                      # ~30 min cold; ccache after
 bash tools/build-torch-mlir.sh
 bash tools/build-gnnc.sh                       # gnnc's C++ MLIR passes
