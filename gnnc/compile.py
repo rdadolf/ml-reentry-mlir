@@ -20,6 +20,7 @@ import functools
 import re
 from typing import TYPE_CHECKING
 
+from gnnc import get_context
 from gnnc.conversion.tm_tensor_to_torch import rewrite_names
 from gnnc.conversion.tm_tensor_to_torch import run as run_transforms
 from gnnc.ingress import import_as_raw_ir
@@ -100,7 +101,7 @@ def _reimport(module):
     from mlir import ir
 
     text = str(module)
-    ctx = _get_ir_context()
+    ctx = get_context()
     with ctx, ir.Location.unknown():
         return ir.Module.parse(text)
 
@@ -144,7 +145,7 @@ def lower(
     pipeline.extend(build_pipeline(target=target))
     return pipeline.run(
         None,
-        _get_ir_context,
+        get_context,
         stop_before=stop_before,
         stop_after=stop_after,
         print_ir_before=print_ir_before,
@@ -176,11 +177,11 @@ def compile_executable(
     # Run the frontend only (through linalg); the schedule runs below via
     # MLIRBackend, which needs its own ABI prep around it.
     module, _ = _frontend_pipeline(model, forward_inputs).run(
-        None, _get_ir_context, stop_after="linalg-lower"
+        None, get_context, stop_after="linalg-lower"
     )
     text = str(module)
 
-    ctx = _get_ir_context()
+    ctx = get_context()
     with ctx, ir.Location.unknown():
         m = ir.Module.parse(text)
 
@@ -205,20 +206,3 @@ def compile_executable(
         backend.move_results_to_args(func_op)
         lowered = backend.compile_mlir(m)
     return lowered, results
-
-
-@functools.cache
-def _get_ir_context() -> _ir.Context:
-    """Process-wide singleton MLIR context with Lighthouse dialects loaded.
-
-    Shared with `gnnc.execution.run_jit` (which calls back here). Memoized
-    because `MLIRBackend` and downstream PassManagers assume a stable
-    context across the compile+execute pair.
-    """
-    from lighthouse import dialects as lh_dialects
-    from mlir import ir
-
-    ctx = ir.Context()
-    with ctx, ir.Location.unknown():
-        lh_dialects.register_and_load()
-    return ctx

@@ -51,6 +51,12 @@ class PyPassRegistry:
         from mlir.ir import Context
         from mlir.passmanager import PassManager
 
+        from gnnc import _register_passes
+
+        # Register gnnc's C++ passes first so the probe below also catches a
+        # Python pass shadowing one of them, not just an MLIR pass.
+        _register_passes()
+
         with Context():
             for name in _PASSES:
                 try:

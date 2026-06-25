@@ -38,3 +38,17 @@ for name in "${!STACK[@]}"; do
     ln -sfn "$target" "$link"
     echo "linked  $name -> $target"
 done
+
+# The _gnncRegisterPasses module is a single compiled extension rather than a
+# package directory, so it is linked separately: place it next to the gnnc
+# Python sources so `import gnnc._gnncRegisterPasses` resolves, which registers
+# gnnc's C++ passes. Built by build-gnnc.sh into the gnnc build's lib/. Skipped
+# with a warning if the C++ build has not run; the Python package still works,
+# only without gnnc's C++ passes.
+ext=$(echo "$GNNC_CACHE_DIR/build/gnnc/lib/_gnncRegisterPasses."*.so)
+if [[ -f "$ext" ]]; then
+    ln -sfn "$ext" "$REPO/gnnc/$(basename "$ext")"
+    echo "linked  gnnc/$(basename "$ext") -> $ext"
+else
+    echo "warning: gnnc C++ pass module not built, skipping: run tools/build-gnnc.sh" >&2
+fi

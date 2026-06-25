@@ -33,7 +33,7 @@ def run_jit(lowered: _ir.Module, results: list, inputs: tuple) -> list[torch.Ten
     from lighthouse.ingress.torch.compile import JITFunction
     from mlir import ir
 
-    from gnnc.compile import _get_ir_context
+    from gnnc import get_context
     from gnnc.paths import CACHE_DIR
 
     # --- DIRTY: force lighthouse's runtime-lib lookup to the real location ------
@@ -63,7 +63,7 @@ def run_jit(lowered: _ir.Module, results: list, inputs: tuple) -> list[torch.Ten
     if "gpu.binary" in str(lowered) or "mgpu" in str(lowered):
         shared_libs.append(str(libdir / "libmlir_cuda_runtime.so"))
 
-    ctx = _get_ir_context()
+    ctx = get_context()
     with ctx, ir.Location.unknown():
         jit = JITFunction(lowered, results, shared_libs=shared_libs)
         return jit(*_decompose_sparse(inputs))

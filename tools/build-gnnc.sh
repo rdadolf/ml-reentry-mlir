@@ -69,14 +69,17 @@ EOF
         echo "warning: llvm-project submodule HEAD ($src_sha) != pinned index ($pinned_sha)" >&2
     fi
 
-    # Same compiler/linker as the LLVM build — ABI flags must match.
+    # Same compiler/linker as the LLVM build — ABI flags must match. The venv
+    # interpreter (with nanobind) drives the pass bridge's nanobind discovery,
+    # the same way build-llvm.sh points the bindings build at it.
     cmake -G Ninja -S "$REPO" -B "$BUILD_DIR" \
         -DMLIR_DIR="$LLVM_BUILD/lib/cmake/mlir" \
         -DLLVM_EXTERNAL_LIT="$LLVM_BUILD/bin/llvm-lit" \
         -DMLIR_INCLUDE_TESTS=ON \
         -DCMAKE_C_COMPILER=clang \
         -DCMAKE_CXX_COMPILER=clang++ \
-        -DLLVM_USE_LINKER=lld
+        -DLLVM_USE_LINKER=lld \
+        -DPython3_EXECUTABLE="$(command -v python3)"
 fi
 
 ### Fast path ###

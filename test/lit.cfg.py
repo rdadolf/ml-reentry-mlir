@@ -10,6 +10,7 @@
 import os
 import subprocess
 import sys
+import sysconfig
 
 import lit.formats
 import lit.llvm
@@ -98,3 +99,13 @@ if gnnc_build and os.path.isfile(os.path.join(gnnc_build, "build.ninja")):
 # hasn't run rather than erroring on the unresolved %gnnc_plugin.
 if gnnc_plugin and os.path.exists(gnnc_plugin):
     config.available_features.add("gnnc-plugin")
+
+# gnnc's C++ passes are available to gnnc-opt once build-gnnc.sh built the
+# _gnncRegisterPasses module and link-stack.sh placed it next to the gnnc
+# sources. Tests that drive those passes through gnnc-opt gate on
+# `REQUIRES: gnnc-cpp-passes`.
+repo_root = os.path.dirname(config.test_source_root)
+ext_suffix = sysconfig.get_config_var("EXT_SUFFIX")
+gnnc_passes_module = os.path.join(repo_root, "gnnc", f"_gnncRegisterPasses{ext_suffix}")
+if os.path.exists(gnnc_passes_module):
+    config.available_features.add("gnnc-cpp-passes")

@@ -71,15 +71,15 @@ def main(argv: list[str] | None = None) -> int:
     text = read_input(args.input)
 
     try:
-        from lighthouse import dialects as lh_dialects
         from mlir import ir
+
+        from gnnc import get_context
     except ImportError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 3
 
-    ctx = ir.Context()
+    ctx = get_context()
     with ctx, ir.Location.unknown():
-        lh_dialects.register_and_load()
         module = ir.Module.parse(text)
 
         phase = None
